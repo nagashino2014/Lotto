@@ -3,6 +3,7 @@
 ## ⚠️ 중요: 배포 방법 선택
 
 ### 🚀 Netlify 배포 (강력 권장)
+
 - ✅ 당첨번호 조회 **완벽 작동**
 - ✅ CORS 문제 **완전 해결**
 - ✅ 서버리스 함수로 **안정적 운영**
@@ -11,6 +12,7 @@
 👉 **[Netlify 배포 가이드 보기](NETLIFY_DEPLOY_SIMPLE.md)**
 
 ### 📄 GitHub Pages 배포
+
 - ⚠️ 당첨번호 조회 **작동 안 함** (CORS 제한)
 - ⚠️ 번호 생성 및 저장 기능만 사용 가능
 - 권장하지 않음
@@ -20,26 +22,30 @@
 ## 📌 주요 기능
 
 ### 1. 🎲 스마트 번호 생성
+
 - 5개부터 100개까지 원하는 만큼 번호 조합 생성
 - 완전 무작위 알고리즘으로 공정한 번호 생성
 - 시각적으로 아름다운 번호 공 디스플레이
 
 ### 2. 💾 GitHub 저장 기능
+
 - 생성한 번호 조합을 GitHub 저장소에 안전하게 보관
 - 회차별로 구분하여 체계적인 관리
 - 메모 기능으로 특별한 조합 표시
 
 ### 3. 🏆 당첨 확인 기능
+
 - 저장된 번호와 실제 당첨 번호 자동 비교
 - 당첨 등수별 정확한 판정
   - **1등**: 6개 번호 모두 일치
-  - **2등**: 5개 번호 + 보너스 번호 일치  
+  - **2등**: 5개 번호 + 보너스 번호 일치
   - **3등**: 5개 번호 일치
   - **4등**: 4개 번호 일치
   - **5등**: 3개 번호 일치
 - 예상 당첨금 계산
 
 ### 4. 📄 PDF 다운로드
+
 - 생성한 번호를 PDF로 저장
 - 인쇄하여 편리하게 보관
 
@@ -57,6 +63,7 @@
 번호를 GitHub에 저장하려면 Personal Access Token이 필요합니다:
 
 #### Fine-grained Token 생성 (권장 ✅)
+
 1. GitHub 로그인 → Settings → Developer settings
 2. Personal access tokens → **Fine-grained tokens** → Generate new token
 3. 토큰 설정:
@@ -69,6 +76,7 @@
 5. 로또 생성기의 "저장 관리" 탭에 토큰 입력
 
 #### Classic Token (대안)
+
 1. Personal access tokens → Tokens (classic) → Generate new token
 2. 권한 선택: `repo` (전체 선택)
 3. Generate token 후 토큰 복사
@@ -81,30 +89,35 @@ CORS 정책으로 인해 브라우저에서 직접 동행복권 API를 호출할
 실제 당첨 번호 조회를 위해서는 프록시 서버가 필요합니다.
 
 #### 옵션 1: Netlify Functions 사용
+
 `netlify/functions/lotto-api.js` 파일 생성:
 
 ```javascript
 exports.handler = async (event) => {
   const round = event.queryStringParameters.round;
-  
+
   try {
     const response = await fetch(
       `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${round}`
     );
     const data = await response.json();
-    
+
     return {
       statusCode: 200,
       headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         round: data.drwNo,
         date: `${data.drwNoDate}`,
         numbers: [
-          data.drwtNo1, data.drwtNo2, data.drwtNo3,
-          data.drwtNo4, data.drwtNo5, data.drwtNo6
+          data.drwtNo1,
+          data.drwtNo2,
+          data.drwtNo3,
+          data.drwtNo4,
+          data.drwtNo5,
+          data.drwtNo6,
         ].sort((a, b) => a - b),
         bonus: data.bnusNo,
         prize: {
@@ -112,38 +125,43 @@ exports.handler = async (event) => {
           2: { count: data.secondPrzwnerCo, amount: data.secondWinamnt },
           3: { count: data.thirdPrzwnerCo, amount: data.thirdWinamnt },
           4: { count: data.fourthPrzwnerCo, amount: data.fourthWinamnt },
-          5: { count: data.fifthPrzwnerCo, amount: data.fifthWinamnt }
-        }
-      })
+          5: { count: data.fifthPrzwnerCo, amount: data.fifthWinamnt },
+        },
+      }),
     };
   } catch (error) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Failed to fetch lottery data' })
+      body: JSON.stringify({ error: "Failed to fetch lottery data" }),
     };
   }
 };
 ```
 
 #### 옵션 2: Vercel Functions 사용
+
 `api/lotto.js` 파일 생성:
 
 ```javascript
 export default async function handler(req, res) {
   const { round } = req.query;
-  
+
   try {
     const response = await fetch(
       `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${round}`
     );
     const data = await response.json();
-    
+
     res.status(200).json({
       round: data.drwNo,
       date: `${data.drwNoDate}`,
       numbers: [
-        data.drwtNo1, data.drwtNo2, data.drwtNo3,
-        data.drwtNo4, data.drwtNo5, data.drwtNo6
+        data.drwtNo1,
+        data.drwtNo2,
+        data.drwtNo3,
+        data.drwtNo4,
+        data.drwtNo5,
+        data.drwtNo6,
       ].sort((a, b) => a - b),
       bonus: data.bnusNo,
       prize: {
@@ -151,11 +169,11 @@ export default async function handler(req, res) {
         2: { count: data.secondPrzwnerCo, amount: data.secondWinamnt },
         3: { count: data.thirdPrzwnerCo, amount: data.thirdWinamnt },
         4: { count: data.fourthPrzwnerCo, amount: data.fourthWinamnt },
-        5: { count: data.fifthPrzwnerCo, amount: data.fifthWinamnt }
-      }
+        5: { count: data.fifthPrzwnerCo, amount: data.fifthWinamnt },
+      },
     });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch lottery data' });
+    res.status(500).json({ error: "Failed to fetch lottery data" });
   }
 }
 ```
@@ -166,17 +184,17 @@ export default async function handler(req, res) {
 
 ```javascript
 async function fetchWinningNumbers(round) {
-    // Netlify 사용 시
-    const response = await fetch(`/.netlify/functions/lotto-api?round=${round}`);
-    
-    // Vercel 사용 시
-    // const response = await fetch(`/api/lotto?round=${round}`);
-    
-    if (!response.ok) {
-        throw new Error('Failed to fetch winning numbers');
-    }
-    
-    return await response.json();
+  // Netlify 사용 시
+  const response = await fetch(`/.netlify/functions/lotto-api?round=${round}`);
+
+  // Vercel 사용 시
+  // const response = await fetch(`/api/lotto?round=${round}`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch winning numbers");
+  }
+
+  return await response.json();
 }
 ```
 
@@ -224,5 +242,5 @@ MIT License - 자유롭게 사용, 수정, 배포 가능
 
 ---
 
-**⚠️ 주의사항**: 이 도구는 엔터테인먼트 목적으로만 사용하세요. 
+**⚠️ 주의사항**: 이 도구는 엔터테인먼트 목적으로만 사용하세요.
 로또는 확률 게임이며, 과도한 구매는 피해주세요. 책임감 있는 게임 문화를 만들어갑시다.
