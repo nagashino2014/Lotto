@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>로또 번호 생성기 v3.2 (폰트 수정)</title>
+    <title>로또 번호 생성기 v4.0 (폰트 로딩 해결)</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
@@ -17,7 +17,7 @@
             --secondary-hover: #5a6268;
             --bg-color: #f8f9fa;
             --content-bg: #ffffff;
-            --border-color: #dee2e6; /* PDF에서 사용할 색상 값 */
+            --border-color: #dee2e6;
             --text-color: #212529;
             --text-light: #495057;
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -112,6 +112,15 @@
             background-color: var(--primary-hover);
         }
 
+        /* [수정됨] 버튼 비활성화 시 스타일 */
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: #eee;
+            color: #aaa;
+            border-color: #ddd;
+        }
+
         #pdf-btn {
             background-color: var(--content-bg);
             color: var(--secondary-color);
@@ -124,11 +133,15 @@
         }
         
         #pdf-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
             background-color: #eee;
-            color: #aaa;
             border-color: #ddd;
+        }
+        
+        /* [새로 추가] 폰트 로딩 메시지 */
+        #loading-msg {
+            font-weight: 600;
+            color: var(--secondary-color);
+            transition: color 0.3s;
         }
 
         #results-container {
@@ -201,11 +214,13 @@
                     <option value="40">40개</option>
                     <option value="50">50개</option>
                 </select>
-                <button type="button" id="generate-btn">번호 생성</button>
+                <button type="button" id="generate-btn" disabled>번호 생성</button>
             </div>
             <button type="button" id="pdf-btn" disabled>📄 PDF로 다운로드</button>
         </div>
         
+        <p id="loading-msg">⏳ 폰트 파일을 불러오는 중입니다...</p>
+
         <div id="results-container">
             <h3>생성된 번호</h3>
             <div id="results-display"></div>
@@ -213,9 +228,6 @@
     </div>
 
     <script>
-        // 이 스크립트가 실행되는 시점에는 위의 폰트 스크립트 로딩이
-        // 시작되었거나 완료되었을 수 있습니다.
-        
         const { jsPDF } = window.jspdf;
         let currentLottoSets = [];
 
@@ -276,12 +288,11 @@
             });
 
             try {
-                // 폰트 스크립트가 정상적으로 로드되었다면 이 시점에서 폰트가 등록되어 있어야 합니다.
                 doc.setFont('NanumGothic', 'normal');
             } catch (e) {
                 console.error("PDF 폰트 설정 오류:", e);
-                // 폰트가 아직 로드되지 않았거나 실패하면 경고합니다.
-                alert("PDF 폰트 로딩에 실패했습니다. 페이지를 새로고침한 후 다시 시도해 주세요.");
+                // 이 경고는 이제 이론상 표시되지 않아야 합니다.
+                alert("PDF 폰트 로딩에 실패했습니다.");
                 return;
             }
 
@@ -349,28 +360,58 @@
         }
 
 
-        // 버튼 이벤트 리스너 설정
+        // [수정됨] 폰트 로딩을 확인한 후 버튼을 활성화하는 로직
         document.addEventListener('DOMContentLoaded', () => {
             const generateBtn = document.getElementById('generate-btn');
             const pdfBtn = document.getElementById('pdf-btn');
             const countSelect = document.getElementById('count-select');
             const resultsContainer = document.getElementById('results-container');
+            const loadingMsg = document.getElementById('loading-msg');
 
-            generateBtn.addEventListener('click', () => {
-                const count = parseInt(countSelect.value, 10);
-                currentLottoSets = generateLottoSets(count);
-                displayResults(currentLottoSets);
-                resultsContainer.style.display = 'block';
-                pdfBtn.disabled = false;
-            });
+            // --- 폰트 로딩 체커 ---
+            const fontCheckInterval = setInterval(() => {
+                try {
+                    // jsPDF가 로드되었고, 폰트도 등록되었는지 확인
+                    const doc = new jsPDF();
+                    const fontList = doc.getFontList();
+                    
+                    if (fontList && fontList.hasOwnProperty('NanumGothic')) {
+                        // 1. 폰트 로딩 완료!
+                        clearInterval(fontCheckInterval); // 체커 중지
+                        
+                        // 2. 로딩 메시지 변경 및 버튼 활성화
+                        loadingMsg.textContent = "✅ 폰트 로딩 완료!";
+                        loadingMsg.style.color = "green";
+                        generateBtn.disabled = false; // '번호 생성' 버튼 활성화
+                        
+                        // 3. 버튼 이벤트 리스너 등록
+                        generateBtn.addEventListener('click', () => {
+                            const count = parseInt(countSelect.value, 10);
+                            currentLottoSets = generateLottoSets(count);
+                            displayResults(currentLottoSets);
+                            resultsContainer.style.display = 'block';
+                            pdfBtn.disabled = false; // 'PDF' 버튼 활성화
+                        });
 
-            pdfBtn.addEventListener('click', () => {
-                if (currentLottoSets.length > 0) {
-                    createLottoPDF(currentLottoSets);
-                } else {
-                    alert("먼저 번호를 생성해주세요.");
+                        pdfBtn.addEventListener('click', () => {
+                            if (currentLottoSets.length > 0) {
+                                createLottoPDF(currentLottoSets);
+                            } else {
+                                alert("먼저 번호를 생성해주세요.");
+                            }
+                        });
+                        
+                        // 2초 뒤에 로딩 메시지 숨기기
+                        setTimeout(() => {
+                            loadingMsg.style.display = 'none';
+                        }, 2000);
+                    }
+                    // else: 폰트가 아직 로드 안됨. 다음 200ms 후에 다시 시도...
+                } catch (e) {
+                    // jsPDF 자체가 아직 로드되지 않았을 수 있음
+                    // (오류 무시하고 다음 200ms 후에 다시 시도)
                 }
-            });
+            }, 200); // 0.2초마다 폰트가 준비되었는지 확인
         });
 
     </script>
