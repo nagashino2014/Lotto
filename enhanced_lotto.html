@@ -633,13 +633,25 @@
                         <span>저장된 번호 관리</span>
                     </div>
 
+                    <div class="alert alert-info" style="margin-bottom: 15px;">
+                        <span>💡</span>
+                        <div>
+                            <strong>Fine-grained Token 사용 권장</strong><br>
+                            <small>Settings → Developer settings → Personal access tokens → Fine-grained tokens<br>
+                            권한: Repository (Lotto) → Contents (Read and write)</small>
+                        </div>
+                    </div>
+
                     <div class="control-group">
                         <label>GitHub 설정</label>
-                        <input type="text" id="github-token" placeholder="GitHub Personal Access Token" style="margin-bottom: 10px;">
+                        <input type="text" id="github-token" placeholder="GitHub Personal Access Token (github_pat_...)" style="margin-bottom: 10px;">
                         <div class="input-group">
                             <input type="text" id="github-owner" placeholder="사용자명 (예: nagashino2014)" value="nagashino2014">
                             <input type="text" id="github-repo" placeholder="저장소명 (예: Lotto)" value="Lotto">
                         </div>
+                        <small style="color: var(--gray-400); margin-top: 5px; display: block;">
+                            💡 토큰은 브라우저에 안전하게 저장됩니다
+                        </small>
                     </div>
 
                     <button class="btn btn-primary" onclick="loadSavedSets()">
@@ -887,7 +899,7 @@
             }
             
             if (!token) {
-                alert('GitHub Personal Access Token을 입력해주세요.\n설정 > 개발자 설정 > Personal access tokens에서 생성할 수 있습니다.');
+                alert('GitHub Personal Access Token을 입력해주세요.\n\n📝 Fine-grained Token 생성 방법:\n1. GitHub → Settings → Developer settings\n2. Personal access tokens → Fine-grained tokens\n3. Repository: Lotto 선택\n4. Contents: Read and write 권한 부여');
                 return;
             }
             
@@ -905,8 +917,10 @@
                 const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${filename}`, {
                     method: 'PUT',
                     headers: {
-                        'Authorization': `token ${token}`,
+                        'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json',
+                        'Accept': 'application/vnd.github+json',
+                        'X-GitHub-Api-Version': '2022-11-28'
                     },
                     body: JSON.stringify({
                         message: `Add lotto numbers for round ${round}`,
@@ -921,7 +935,17 @@
                     closeModal();
                 } else {
                     const error = await response.json();
-                    alert(`저장 실패: ${error.message}`);
+                    let errorMsg = `저장 실패: ${error.message}`;
+                    
+                    if (response.status === 404) {
+                        errorMsg += '\n\n❌ 저장소를 찾을 수 없습니다.\n✅ GitHub에서 "Lotto" 저장소를 먼저 생성해주세요.';
+                    } else if (response.status === 403) {
+                        errorMsg += '\n\n❌ 권한이 부족합니다.\n✅ Token 권한 확인:\n- Contents: Read and write\n- Repository: Lotto 선택됨';
+                    } else if (response.status === 401) {
+                        errorMsg += '\n\n❌ 인증에 실패했습니다.\n✅ 토큰이 올바른지 확인해주세요.\n✅ Fine-grained token의 경우 만료되지 않았는지 확인하세요.';
+                    }
+                    
+                    alert(errorMsg);
                 }
             } catch (error) {
                 alert(`저장 중 오류가 발생했습니다: ${error.message}`);
@@ -942,7 +966,9 @@
             try {
                 const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/`, {
                     headers: {
-                        'Authorization': `token ${token}`,
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/vnd.github+json',
+                        'X-GitHub-Api-Version': '2022-11-28'
                     }
                 });
                 
@@ -991,7 +1017,16 @@
                         container.innerHTML = '<p style="color: var(--gray-400); text-align: center;">저장된 번호가 없습니다.</p>';
                     }
                 } else {
-                    alert('저장된 번호를 불러올 수 없습니다.');
+                    const error = await response.json();
+                    let errorMsg = '저장된 번호를 불러올 수 없습니다.';
+                    
+                    if (response.status === 404) {
+                        errorMsg = '❌ 저장소를 찾을 수 없습니다.\n\n✅ GitHub에서 "Lotto" 저장소를 먼저 생성해주세요.\n✅ 저장소 이름과 사용자명이 정확한지 확인하세요.';
+                    } else if (response.status === 403) {
+                        errorMsg = '❌ 접근 권한이 없습니다.\n\n✅ Token 권한을 확인하세요:\n- Repository: Lotto 선택됨\n- Contents: Read and write\n- Metadata: Read-only';
+                    }
+                    
+                    alert(errorMsg);
                 }
             } catch (error) {
                 alert(`오류가 발생했습니다: ${error.message}`);

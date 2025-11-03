@@ -35,16 +35,28 @@
 3. Settings → Pages에서 GitHub Pages 활성화
 4. `https://[username].github.io/Lotto/enhanced_lotto.html`로 접속
 
-### 2. GitHub Personal Access Token 생성
+### 2. GitHub Personal Access Token 생성 (Fine-grained 권장)
 
 번호를 GitHub에 저장하려면 Personal Access Token이 필요합니다:
 
+#### Fine-grained Token 생성 (권장 ✅)
 1. GitHub 로그인 → Settings → Developer settings
-2. Personal access tokens → Tokens (classic) → Generate new token
-3. 권한 선택:
-   - `repo` (전체 선택)
-4. Generate token 클릭 후 토큰 복사
+2. Personal access tokens → **Fine-grained tokens** → Generate new token
+3. 토큰 설정:
+   - **Token name**: `Lotto App Token`
+   - **Repository access**: Only select repositories → `Lotto` 선택
+   - **Repository permissions**:
+     - **Contents**: Read and write ✅
+     - **Metadata**: Read-only (자동 설정)
+4. Generate token 클릭 후 토큰 복사 (`github_pat_...` 형식)
 5. 로또 생성기의 "저장 관리" 탭에 토큰 입력
+
+#### Classic Token (대안)
+1. Personal access tokens → Tokens (classic) → Generate new token
+2. 권한 선택: `repo` (전체 선택)
+3. Generate token 후 토큰 복사
+
+📖 자세한 가이드는 `GITHUB_TOKEN_GUIDE.md` 파일을 참고하세요!
 
 ### 3. 실제 당첨 번호 조회 기능 활성화
 
