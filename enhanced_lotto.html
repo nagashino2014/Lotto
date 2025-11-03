@@ -1168,66 +1168,99 @@
             }
         }
 
-        // 당첨 번호 조회 (실제 동행복권 API 사용)
+        // 당첨 번호 조회 (환경 자동 감지 + CORS 프록시)
         async function fetchWinningNumbers(round) {
-            try {
-                // 동행복권 API 호출
-                const response = await fetch(`/.netlify/functions/lotto-api?round=${round}`);
-                
-                if (!response.ok) {
-                    throw new Error('API 호출 실패');
-                }
-                
-                const data = await response.json();
-                
-                // 결과 코드 확인
-                if (data.returnValue === 'fail') {
-                    // 아직 추첨이 이루어지지 않은 회차
-                    return null;
-                }
-                
-                // 데이터 파싱
-                return {
-                    round: data.drwNo,
-                    date: data.drwNoDate,
-                    numbers: [
-                        data.drwtNo1, 
-                        data.drwtNo2, 
-                        data.drwtNo3,
-                        data.drwtNo4, 
-                        data.drwtNo5, 
-                        data.drwtNo6
-                    ].sort((a, b) => a - b),
-                    bonus: data.bnusNo,
-                    prize: {
-                        1: { 
-                            count: data.firstPrzwnerCo, 
-                            amount: data.firstWinamnt 
-                        },
-                        2: { 
-                            count: data.secondPrzwnerCo, 
-                            amount: data.secondWinamnt 
-                        },
-                        3: { 
-                            count: data.thirdPrzwnerCo, 
-                            amount: data.thirdWinamnt 
-                        },
-                        4: { 
-                            count: data.fourthPrzwnerCo, 
-                            amount: data.fourthWinamnt 
-                        },
-                        5: { 
-                            count: data.fifthPrzwnerCo, 
-                            amount: data.fifthWinamnt 
+            // 시도 순서:
+            // 1. Netlify Functions (배포 환경)
+            // 2. 직접 API 호출 (CORS 허용 시)
+            // 3. AllOrigins CORS 프록시
+            
+            // 방법 1: Netlify Functions 시도
+            if (window.location.hostname.includes('netlify.app')) {
+                try {
+                    const netlifyResponse = await fetch(`/.netlify/functions/lotto-api?round=${round}`);
+                    if (netlifyResponse.ok) {
+                        const data = await netlifyResponse.json();
+                        if (data.error) {
+                            return null; // 미추첨 회차
                         }
+                        return data;
                     }
-                };
-            } catch (error) {
-                console.error('당첨 번호 조회 오류:', error);
+                } catch (netlifyError) {
+                    console.log('Netlify Functions 사용 불가:', netlifyError);
+                }
+            }
+            
+            // 방법 2: 직접 API 호출 시도
+            try {
+                const directResponse = await fetch(`https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${round}`);
                 
-                // CORS 오류 또는 네트워크 오류 발생 시
-                // 사용자에게 안내 메시지 표시
-                throw new Error('동행복권 API 연결에 실패했습니다. CORS 정책으로 인해 직접 호출이 제한될 수 있습니다.');
+                if (directResponse.ok) {
+                    const data = await directResponse.json();
+                    
+                    // 결과 코드 확인
+                    if (data.returnValue === 'fail') {
+                        return null; // 미추첨 회차
+                    }
+                    
+                    // 데이터 파싱
+                    return {
+                        round: data.drwNo,
+                        date: data.drwNoDate,
+                        numbers: [
+                            data.drwtNo1, data.drwtNo2, data.drwtNo3,
+                            data.drwtNo4, data.drwtNo5, data.drwtNo6
+                        ].sort((a, b) => a - b),
+                        bonus: data.bnusNo,
+                        prize: {
+                            1: { count: data.firstPrzwnerCo, amount: data.firstWinamnt },
+                            2: { count: data.secondPrzwnerCo, amount: data.secondWinamnt },
+                            3: { count: data.thirdPrzwnerCo, amount: data.thirdWinamnt },
+                            4: { count: data.fourthPrzwnerCo, amount: data.fourthWinamnt },
+                            5: { count: data.fifthPrzwnerCo, amount: data.fifthWinamnt }
+                        }
+                    };
+                }
+            } catch (directError) {
+                console.log('직접 API 호출 실패 (CORS):', directError);
+            }
+            
+            // 방법 3: AllOrigins CORS 프록시 사용
+            try {
+                console.log('CORS 프록시를 통해 API 호출 시도...');
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${round}`)}`;
+                const proxyResponse = await fetch(proxyUrl);
+                
+                if (proxyResponse.ok) {
+                    const proxyData = await proxyResponse.json();
+                    const data = JSON.parse(proxyData.contents);
+                    
+                    // 결과 코드 확인
+                    if (data.returnValue === 'fail') {
+                        return null; // 미추첨 회차
+                    }
+                    
+                    // 데이터 파싱
+                    return {
+                        round: data.drwNo,
+                        date: data.drwNoDate,
+                        numbers: [
+                            data.drwtNo1, data.drwtNo2, data.drwtNo3,
+                            data.drwtNo4, data.drwtNo5, data.drwtNo6
+                        ].sort((a, b) => a - b),
+                        bonus: data.bnusNo,
+                        prize: {
+                            1: { count: data.firstPrzwnerCo, amount: data.firstWinamnt },
+                            2: { count: data.secondPrzwnerCo, amount: data.secondWinamnt },
+                            3: { count: data.thirdPrzwnerCo, amount: data.thirdWinamnt },
+                            4: { count: data.fourthPrzwnerCo, amount: data.fourthWinamnt },
+                            5: { count: data.fifthPrzwnerCo, amount: data.fifthWinamnt }
+                        }
+                    };
+                }
+            } catch (proxyError) {
+                console.error('CORS 프록시 호출 실패:', proxyError);
+                throw new Error('모든 API 호출 방법이 실패했습니다. 네트워크 연결을 확인해주세요.');
             }
         }
 
