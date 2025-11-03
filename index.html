@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>로또 번호 생성기 v6.0 (안정화)</title>
+    <title>로또 번호 생성기 v7.0 (최종 수정)</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    
+
     <style>
         /* CSS는 이전과 동일합니다 */
         :root {
@@ -80,6 +80,9 @@
     <script>
         const { jsPDF } = window.jspdf;
         let currentLottoSets = [];
+        
+        // [수정됨] 폰트 Base64를 저장할 전역 변수
+        let nanumFontBase64 = null; 
 
         // --- 유틸리티 함수: ArrayBuffer를 Base64로 ---
         function arrayBufferToBase64(buffer) {
@@ -93,7 +96,7 @@
         }
 
         /**
-         * [새로 추가] 비동기 폰트 로딩 함수
+         * [수정됨] 폰트 로딩 및 버튼 활성화 함수
          */
         async function loadFontAndSetup() {
             const generateBtn = document.getElementById('generate-btn');
@@ -103,7 +106,7 @@
             const resultsContainer = document.getElementById('results-container');
             
             try {
-                // 1. .ttf 폰트 파일을 신뢰할 수 있는 CDN에서 fetch로 다운로드
+                // 1. .ttf 폰트 파일을 fetch로 다운로드
                 const fontUrl = 'https://cdn.jsdelivr.net/font-nanum/1.0/nanumgothic/v3/NanumGothic-Regular.ttf';
                 const response = await fetch(fontUrl);
                 
@@ -111,22 +114,17 @@
                     throw new Error('폰트 파일 다운로드 실패');
                 }
                 
-                const fontBuffer = await response.arrayBuffer(); // ArrayBuffer로 변환
+                const fontBuffer = await response.arrayBuffer();
                 
-                // 2. ArrayBuffer를 Base64 문자열로 변환
-                const fontBase64 = arrayBufferToBase64(fontBuffer);
+                // 2. [수정됨] 폰트 데이터를 전역 변수에 저장
+                nanumFontBase64 = arrayBufferToBase64(fontBuffer);
                 
-                // 3. jsPDF에 폰트 등록 (VFS: 가상 파일 시스템)
-                const doc = new jsPDF();
-                doc.addFileToVFS('NanumGothic.ttf', fontBase64);
-                doc.addFont('NanumGothic.ttf', 'NanumGothic', 'normal');
-                
-                // 4. 폰트 로딩 성공! 버튼 활성화 및 메시지 변경
+                // 3. 폰트 로딩 성공! 버튼 활성화
                 loadingMsg.textContent = "✅ 폰트 로딩 완료!";
                 loadingMsg.style.color = "green";
                 generateBtn.disabled = false; // '번호 생성' 버튼 활성화
                 
-                // 5. 이벤트 리스너 등록
+                // 4. 이벤트 리스너 등록
                 generateBtn.addEventListener('click', () => {
                     const count = parseInt(countSelect.value, 10);
                     currentLottoSets = generateLottoSets(count);
@@ -137,7 +135,7 @@
 
                 pdfBtn.addEventListener('click', () => {
                     if (currentLottoSets.length > 0) {
-                        createLottoPDF(currentLottoSets, doc); // 생성된 doc 객체 전달
+                        createLottoPDF(currentLottoSets); // 폰트가 등록된 doc 객체를 전달할 필요 없음
                     } else {
                         alert("먼저 번호를 생성해주세요.");
                     }
@@ -151,8 +149,6 @@
                 loadingMsg.style.color = "red";
             }
         }
-
-        // --- 나머지 함수들은 이전과 거의 동일 ---
 
         function generateLottoSets(count) {
             const sets = [];
@@ -186,22 +182,31 @@
             }
         }
 
-        // [수정됨] createLottoPDF는 이제 폰트가 등록된 'doc' 객체를 받을 필요 없음
-        // (단, 새 PDF 객체를 만들 때마다 폰트 설정을 해줘야 함)
+        /**
+         * [수정됨] PDF 생성 시점에 폰트를 등록하는 함수
+         */
         function createLottoPDF(lottoSets) {
-            // 새 PDF 문서를 생성
+            // 1. 새 PDF 문서를 생성
             const doc = new jsPDF({ unit: 'mm', format: 'a4' });
             
+            // 2. 폰트가 로드되었는지 최종 확인
+            if (!nanumFontBase64) {
+                alert("오류: 폰트가 준비되지 않았습니다. 페이지를 새로고침하세요.");
+                return;
+            }
+
             try {
-                // 이 폰트 이름은 loadFontAndSetup에서 등록한 이름과 같아야 함
+                // 3. [핵심] 전역 변수에 저장된 폰트 데이터를 이 PDF 객체에 등록
+                doc.addFileToVFS('NanumGothic.ttf', nanumFontBase64);
+                doc.addFont('NanumGothic.ttf', 'NanumGothic', 'normal');
                 doc.setFont('NanumGothic', 'normal');
             } catch (e) {
                 console.error("PDF 폰트 설정 오류:", e);
-                alert("치명적인 오류: 폰트가 로드되지 않았습니다.");
+                alert("치명적인 오류: 폰트 등록에 실패했습니다.");
                 return;
             }
             
-            // --- 나머지 PDF 생성 코드는 동일 ---
+            // --- 4. 나머지 PDF 생성 코드는 동일 ---
             const margin = 20;
             const pageHeight = doc.internal.pageSize.getHeight();
             const pageWidth = doc.internal.pageSize.getWidth();
@@ -236,8 +241,7 @@
                     const formattedNumbers = numberSet.map(num => num.toString().padStart(2, '0')).join("  ");
                     const overallIndex = (i + index + 1).toString().padStart(2, '0');
                     const lineText = `${overallIndex}.   ${formattedNumbers}`;
-                    doc.text(lineText, currentX + boxPadding, textY);
-                    textY += lineHeight;
+                    doc.text(lineText, currentX + padding, textY);
                 });
                 if (colIndex === 0) { colIndex = 1; } 
                 else { colIndex = 0; currentY += boxHeight + boxGapY; }
@@ -245,13 +249,11 @@
             doc.save('lotto_numbers.pdf');
         }
 
-        // [수정됨] DOM 로드가 완료되면 폰트 로딩 시작
+        // DOM 로드가 완료되면 폰트 로딩 시작
         document.addEventListener('DOMContentLoaded', () => {
-            // jsPDF 라이브러리가 로드되었는지 확인 후 폰트 로딩 시작
             if (window.jspdf && window.jspdf.jsPDF) {
                 loadFontAndSetup();
             } else {
-                // jsPDF.js 로딩이 실패한 경우
                 const loadingMsg = document.getElementById('loading-msg');
                 loadingMsg.textContent = "❌ jsPDF 라이브러리 로딩 실패.";
                 loadingMsg.style.color = "red";
