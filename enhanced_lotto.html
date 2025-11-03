@@ -238,30 +238,69 @@
 
         .lotto-display {
             margin-top: 30px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .lotto-display {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .lotto-card {
+            background: var(--white);
+            border: 2px solid var(--gray-200);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            transition: all 0.3s;
+            animation: slideIn 0.5s ease;
+        }
+
+        .lotto-card:hover {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-2px);
+        }
+
+        .lotto-card-title {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-light);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .lotto-set {
             background: var(--gray-100);
             border-radius: var(--radius);
-            padding: 16px;
-            margin-bottom: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
             transition: all 0.3s;
-            animation: slideIn 0.5s ease;
         }
 
         .lotto-set:hover {
             background: var(--gray-200);
-            transform: translateX(5px);
+        }
+
+        .lotto-set:last-child {
+            margin-bottom: 0;
         }
 
         .lotto-set-number {
             font-weight: 700;
             color: var(--primary);
-            font-size: 1.1rem;
-            min-width: 35px;
+            font-size: 0.95rem;
+            min-width: 30px;
         }
 
         .lotto-balls {
@@ -831,48 +870,66 @@
             document.getElementById('pdf-btn').disabled = false;
         }
 
-        // 번호 표시 함수
+        // 번호 표시 함수 (5개씩 카드로 묶어서 2열 배치)
         function displayNumbers(numbers) {
             const container = document.getElementById('generated-numbers');
             container.innerHTML = '';
             
-            numbers.forEach((set, index) => {
-                const setDiv = document.createElement('div');
-                setDiv.className = 'lotto-set';
+            // 5개씩 묶어서 카드로 표시
+            for (let cardIndex = 0; cardIndex < numbers.length; cardIndex += 5) {
+                const cardNumbers = numbers.slice(cardIndex, cardIndex + 5);
+                const cardDiv = document.createElement('div');
+                cardDiv.className = 'lotto-card';
                 
-                const numberDiv = document.createElement('div');
-                numberDiv.className = 'lotto-set-number';
-                numberDiv.textContent = `${(index + 1).toString().padStart(2, '0')}.`;
+                // 카드 타이틀
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'lotto-card-title';
+                const startNum = cardIndex + 1;
+                const endNum = Math.min(cardIndex + 5, numbers.length);
+                titleDiv.innerHTML = `<span>🎲</span> 조합 ${startNum} - ${endNum}`;
+                cardDiv.appendChild(titleDiv);
                 
-                const ballsDiv = document.createElement('div');
-                ballsDiv.className = 'lotto-balls';
-                
-                set.forEach(num => {
-                    const ball = document.createElement('div');
+                // 카드 내 번호 세트들
+                cardNumbers.forEach((set, index) => {
+                    const setDiv = document.createElement('div');
+                    setDiv.className = 'lotto-set';
                     
-                    // 번호 구간별 색상 클래스 적용
-                    let colorClass = '';
-                    if (num >= 1 && num <= 10) {
-                        colorClass = 'ball-yellow';  // 1-10: 노란색
-                    } else if (num >= 11 && num <= 20) {
-                        colorClass = 'ball-blue';     // 11-20: 파란색
-                    } else if (num >= 21 && num <= 30) {
-                        colorClass = 'ball-red';      // 21-30: 빨간색
-                    } else if (num >= 31 && num <= 40) {
-                        colorClass = 'ball-gray';     // 31-40: 회색
-                    } else if (num >= 41 && num <= 45) {
-                        colorClass = 'ball-green';    // 41-45: 초록색
-                    }
+                    const numberDiv = document.createElement('div');
+                    numberDiv.className = 'lotto-set-number';
+                    numberDiv.textContent = `${(cardIndex + index + 1).toString().padStart(2, '0')}.`;
                     
-                    ball.className = `lotto-ball ${colorClass}`;
-                    ball.textContent = num;
-                    ballsDiv.appendChild(ball);
+                    const ballsDiv = document.createElement('div');
+                    ballsDiv.className = 'lotto-balls';
+                    
+                    set.forEach(num => {
+                        const ball = document.createElement('div');
+                        
+                        // 번호 구간별 색상 클래스 적용
+                        let colorClass = '';
+                        if (num >= 1 && num <= 10) {
+                            colorClass = 'ball-yellow';
+                        } else if (num >= 11 && num <= 20) {
+                            colorClass = 'ball-blue';
+                        } else if (num >= 21 && num <= 30) {
+                            colorClass = 'ball-red';
+                        } else if (num >= 31 && num <= 40) {
+                            colorClass = 'ball-gray';
+                        } else if (num >= 41 && num <= 45) {
+                            colorClass = 'ball-green';
+                        }
+                        
+                        ball.className = `lotto-ball ${colorClass}`;
+                        ball.textContent = num;
+                        ballsDiv.appendChild(ball);
+                    });
+                    
+                    setDiv.appendChild(numberDiv);
+                    setDiv.appendChild(ballsDiv);
+                    cardDiv.appendChild(setDiv);
                 });
                 
-                setDiv.appendChild(numberDiv);
-                setDiv.appendChild(ballsDiv);
-                container.appendChild(setDiv);
-            });
+                container.appendChild(cardDiv);
+            }
         }
 
         // GitHub 저장 함수
@@ -1061,64 +1118,117 @@
                 return;
             }
             
+            // 로딩 표시
+            const winningContainer = document.getElementById('winning-numbers');
+            winningContainer.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>당첨 번호를 조회하는 중...</p>
+                </div>
+            `;
+            
             try {
-                // 동행복권 API 프록시 서버를 통해 당첨 번호 조회
-                // 실제 구현시 CORS 문제로 인해 백엔드 프록시 서버가 필요합니다
                 const winningData = await fetchWinningNumbers(round);
                 
-                if (winningData) {
-                    displayWinningNumbers(winningData);
-                    checkResults(winningData);
-                    statistics.checked++;
-                    updateStatistics();
+                if (winningData === null) {
+                    // 미추첨 회차
+                    winningContainer.innerHTML = `
+                        <div class="alert alert-error">
+                            <span>⚠️</span>
+                            <div>
+                                <strong>${round}회차는 아직 추첨이 이루어지지 않았습니다.</strong><br>
+                                <small>추첨 후 다시 확인해주세요.</small>
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('check-results').innerHTML = '';
+                    return;
                 }
+                
+                // 당첨 번호 표시
+                displayWinningNumbers(winningData);
+                checkResults(winningData);
+                statistics.checked++;
+                updateStatistics();
+                
             } catch (error) {
-                alert(`당첨 번호를 조회할 수 없습니다: ${error.message}`);
+                winningContainer.innerHTML = `
+                    <div class="alert alert-error">
+                        <span>❌</span>
+                        <div>
+                            <strong>당첨 번호를 조회할 수 없습니다</strong><br>
+                            <small>${error.message}</small><br>
+                            <small style="margin-top: 5px; display: block;">
+                                💡 브라우저의 CORS 정책으로 인해 동행복권 API를 직접 호출할 수 없습니다.<br>
+                                프록시 서버 설정이 필요합니다. README.md 파일을 참고하세요.
+                            </small>
+                        </div>
+                    </div>
+                `;
             }
         }
 
-        // 당첨 번호 조회 (예시 데이터)
+        // 당첨 번호 조회 (실제 동행복권 API 사용)
         async function fetchWinningNumbers(round) {
-            // 실제 구현시 백엔드 API를 통해 동행복권 데이터를 가져와야 합니다
-            // 여기서는 예시 데이터를 사용합니다
-            
-            // 예시: 1196회차 당첨번호
-            if (round === '1196') {
+            try {
+                // 동행복권 API 호출
+                const response = await fetch(`https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${round}`);
+                
+                if (!response.ok) {
+                    throw new Error('API 호출 실패');
+                }
+                
+                const data = await response.json();
+                
+                // 결과 코드 확인
+                if (data.returnValue === 'fail') {
+                    // 아직 추첨이 이루어지지 않은 회차
+                    return null;
+                }
+                
+                // 데이터 파싱
                 return {
-                    round: 1196,
-                    date: '2024-11-02',
-                    numbers: [8, 12, 15, 29, 40, 45],
-                    bonus: 14,
+                    round: data.drwNo,
+                    date: data.drwNoDate,
+                    numbers: [
+                        data.drwtNo1, 
+                        data.drwtNo2, 
+                        data.drwtNo3,
+                        data.drwtNo4, 
+                        data.drwtNo5, 
+                        data.drwtNo6
+                    ].sort((a, b) => a - b),
+                    bonus: data.bnusNo,
                     prize: {
-                        1: { count: 15, amount: 2001627550 },
-                        2: { count: 75, amount: 66720919 },
-                        3: { count: 2851, amount: 1755103 },
-                        4: { count: 138949, amount: 50000 },
-                        5: { count: 2265184, amount: 5000 }
+                        1: { 
+                            count: data.firstPrzwnerCo, 
+                            amount: data.firstWinamnt 
+                        },
+                        2: { 
+                            count: data.secondPrzwnerCo, 
+                            amount: data.secondWinamnt 
+                        },
+                        3: { 
+                            count: data.thirdPrzwnerCo, 
+                            amount: data.thirdWinamnt 
+                        },
+                        4: { 
+                            count: data.fourthPrzwnerCo, 
+                            amount: data.fourthWinamnt 
+                        },
+                        5: { 
+                            count: data.fifthPrzwnerCo, 
+                            amount: data.fifthWinamnt 
+                        }
                     }
                 };
+            } catch (error) {
+                console.error('당첨 번호 조회 오류:', error);
+                
+                // CORS 오류 또는 네트워크 오류 발생 시
+                // 사용자에게 안내 메시지 표시
+                throw new Error('동행복권 API 연결에 실패했습니다. CORS 정책으로 인해 직접 호출이 제한될 수 있습니다.');
             }
-            
-            // 임의의 당첨 번호 생성 (테스트용)
-            const numbers = new Set();
-            while (numbers.size < 6) {
-                numbers.add(Math.floor(Math.random() * 45) + 1);
-            }
-            const bonus = Math.floor(Math.random() * 45) + 1;
-            
-            return {
-                round: parseInt(round),
-                date: new Date().toISOString().split('T')[0],
-                numbers: Array.from(numbers).sort((a, b) => a - b),
-                bonus: bonus,
-                prize: {
-                    1: { count: Math.floor(Math.random() * 20) + 1, amount: 2000000000 },
-                    2: { count: Math.floor(Math.random() * 100) + 10, amount: 60000000 },
-                    3: { count: Math.floor(Math.random() * 3000) + 1000, amount: 1500000 },
-                    4: { count: Math.floor(Math.random() * 150000) + 100000, amount: 50000 },
-                    5: { count: Math.floor(Math.random() * 2500000) + 2000000, amount: 5000 }
-                }
-            };
         }
 
         // 당첨 번호 표시
@@ -1246,7 +1356,7 @@
             `;
         }
 
-        // PDF 내보내기
+        // PDF 내보내기 (2열 레이아웃)
         async function exportPDF() {
             if (currentNumbers.length === 0) {
                 alert('먼저 번호를 생성해주세요.');
@@ -1255,7 +1365,7 @@
             
             const doc = new jsPDF();
             
-            // 폰트 설정 (한글 지원을 위해 실제로는 한글 폰트 추가 필요)
+            // 폰트 설정
             doc.setFont('helvetica');
             
             // 제목
@@ -1265,24 +1375,65 @@
             // 날짜
             doc.setFontSize(12);
             doc.text(`Generated: ${new Date().toLocaleDateString()}`, 105, 30, { align: 'center' });
+            doc.text(`Total: ${currentNumbers.length} combinations`, 105, 36, { align: 'center' });
             
-            // 번호 출력
-            doc.setFontSize(14);
+            // 2열 레이아웃 설정
+            doc.setFontSize(10);
             let yPos = 50;
+            const leftColumnX = 20;
+            const rightColumnX = 115;
+            const lineHeight = 8;
+            const cardHeight = 50;
+            let currentColumn = 'left';
+            let cardCount = 0;
             
-            currentNumbers.forEach((numbers, index) => {
-                const text = `${(index + 1).toString().padStart(2, '0')}.  ${numbers.map(n => n.toString().padStart(2, '0')).join('  ')}`;
-                doc.text(text, 30, yPos);
-                yPos += 10;
+            // 5개씩 카드로 묶어서 출력
+            for (let i = 0; i < currentNumbers.length; i += 5) {
+                const cardNumbers = currentNumbers.slice(i, i + 5);
+                const xPos = currentColumn === 'left' ? leftColumnX : rightColumnX;
                 
-                if (yPos > 270) {
-                    doc.addPage();
-                    yPos = 30;
+                // 카드 테두리
+                doc.setDrawColor(200, 200, 200);
+                doc.setLineWidth(0.5);
+                doc.rect(xPos - 2, yPos - 5, 90, cardHeight);
+                
+                // 카드 타이틀
+                doc.setFontSize(11);
+                doc.setTextColor(79, 70, 229); // primary color
+                const startNum = i + 1;
+                const endNum = Math.min(i + 5, currentNumbers.length);
+                doc.text(`Set ${startNum}-${endNum}`, xPos, yPos);
+                
+                doc.setTextColor(0, 0, 0);
+                doc.setFontSize(10);
+                
+                // 번호 출력
+                let cardYPos = yPos + 8;
+                cardNumbers.forEach((numbers, index) => {
+                    const setNum = (i + index + 1).toString().padStart(2, '0');
+                    const numbersText = numbers.map(n => n.toString().padStart(2, '0')).join('  ');
+                    doc.text(`${setNum}.  ${numbersText}`, xPos + 2, cardYPos);
+                    cardYPos += lineHeight;
+                });
+                
+                // 다음 위치 계산
+                cardCount++;
+                if (currentColumn === 'left') {
+                    currentColumn = 'right';
+                } else {
+                    currentColumn = 'left';
+                    yPos += cardHeight + 10;
                 }
-            });
+                
+                // 페이지 넘김 체크
+                if (yPos > 250 && currentColumn === 'left') {
+                    doc.addPage();
+                    yPos = 20;
+                }
+            }
             
             // 저장
-            doc.save('lotto_numbers.pdf');
+            doc.save(`lotto_numbers_${new Date().getTime()}.pdf`);
         }
 
         // 통계 업데이트
