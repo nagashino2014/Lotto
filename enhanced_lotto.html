@@ -620,8 +620,8 @@
             <div class="card">
                 <div class="tabs">
                     <button class="tab active" onclick="switchTab('generate')">⚡ 번호 생성</button>
-                    <button class="tab" onclick="switchTab('saved')">💾 저장 관리</button>
                     <button class="tab" onclick="switchTab('check')">🏆 당첨 체크</button>
+                    <button class="tab" onclick="switchTab('settings')">⚙️ 설정</button>
                 </div>
 
                 <!-- 번호 생성 탭 -->
@@ -665,40 +665,7 @@
                     <div id="generated-numbers" class="lotto-display"></div>
                 </div>
 
-                <!-- 저장 관리 탭 -->
-                <div id="saved-tab" class="tab-content">
-                    <div class="card-title">
-                        <div class="icon">💾</div>
-                        <span>저장된 번호 관리</span>
-                    </div>
-
-                    <div class="alert alert-info" style="margin-bottom: 15px;">
-                        <span>💡</span>
-                        <div>
-                            <strong>Fine-grained Token 사용 권장</strong><br>
-                            <small>Settings → Developer settings → Personal access tokens → Fine-grained tokens<br>
-                            권한: Repository (Lotto) → Contents (Read and write)</small>
-                        </div>
-                    </div>
-
-                    <div class="control-group">
-                        <label>GitHub 설정</label>
-                        <input type="text" id="github-token" placeholder="GitHub Personal Access Token (github_pat_...)" style="margin-bottom: 10px;">
-                        <div class="input-group">
-                            <input type="text" id="github-owner" placeholder="사용자명 (예: nagashino2014)" value="nagashino2014">
-                            <input type="text" id="github-repo" placeholder="저장소명 (예: Lotto)" value="Lotto">
-                        </div>
-                        <small style="color: var(--gray-400); margin-top: 5px; display: block;">
-                            💡 토큰은 브라우저에 안전하게 저장됩니다
-                        </small>
-                    </div>
-
-                    <button class="btn btn-primary" onclick="loadSavedSets()">
-                        <span>🔄</span> 저장된 번호 불러오기
-                    </button>
-
-                    <div id="saved-sets" class="saved-sets-list" style="margin-top: 20px;"></div>
-                </div>
+                <!-- 저장 관리 탭 제거 -->
 
                 <!-- 당첨 체크 탭 -->
                 <div id="check-tab" class="tab-content">
@@ -710,14 +677,24 @@
                     <div class="alert alert-info" style="margin-bottom: 15px;">
                         <span>💡</span>
                         <div>
-                            <strong>CORS 오류 발생 시 해결 방법</strong><br>
+                            <strong>사용 방법</strong><br>
                             <small>
-                                로컬에서 파일을 직접 열면 CORS 오류가 발생할 수 있습니다.<br>
-                                <strong>해결:</strong> 로컬 웹 서버 실행 → <code>python -m http.server 8000</code><br>
-                                그 후 <code>http://localhost:8000/enhanced_lotto.html</code> 접속
+                                1. 저장된 번호 불러오기로 번호 선택<br>
+                                2. 회차 번호 입력 후 당첨 확인<br>
+                                3. 당첨된 조합이 하이라이트됩니다
                             </small>
                         </div>
                     </div>
+
+                    <button class="btn btn-primary" onclick="loadSavedSets()" style="width: 100%; margin-bottom: 20px;">
+                        <span>🔄</span> 저장된 번호 불러오기
+                    </button>
+
+                    <!-- 저장된 번호 트리뷰 -->
+                    <div id="saved-tree" style="margin-bottom: 20px; max-height: 300px; overflow-y: auto; border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 10px;"></div>
+
+                    <!-- 선택된 번호 조합 표시 영역 -->
+                    <div id="selected-numbers" style="margin-bottom: 20px;"></div>
 
                     <div class="control-group">
                         <label for="check-round">확인할 회차 번호</label>
@@ -735,6 +712,34 @@
 
                     <div id="winning-numbers" style="margin-top: 20px;"></div>
                     <div id="check-results"></div>
+                </div>
+
+                <!-- 설정 탭 -->
+                <div id="settings-tab" class="tab-content">
+                    <div class="card-title">
+                        <div class="icon">⚙️</div>
+                        <span>설정</span>
+                    </div>
+
+                    <div class="control-group">
+                        <label>GitHub 설정</label>
+                        <div class="alert alert-info" style="margin-bottom: 15px;">
+                            <span>💡</span>
+                            <div>
+                                <strong>Fine-grained Token 사용 권장</strong><br>
+                                <small>Settings → Developer settings → Personal access tokens → Fine-grained tokens<br>
+                                권한: Repository (Lotto) → Contents (Read and write)</small>
+                            </div>
+                        </div>
+                        <input type="text" id="github-token" placeholder="GitHub Personal Access Token (github_pat_...)" style="margin-bottom: 10px;">
+                        <div class="input-group">
+                            <input type="text" id="github-owner" placeholder="사용자명 (예: nagashino2014)" value="nagashino2014">
+                            <input type="text" id="github-repo" placeholder="저장소명 (예: Lotto)" value="Lotto">
+                        </div>
+                        <small style="color: var(--gray-400); margin-top: 5px; display: block;">
+                            💡 토큰은 브라우저에 안전하게 저장됩니다
+                        </small>
+                    </div>
                 </div>
             </div>
 
@@ -819,12 +824,8 @@
             </div>
             <div class="modal-body">
                 <div class="control-group">
-                    <label for="save-round">로또 회차 입력</label>
-                    <input type="number" id="save-round" placeholder="예: 1196" min="1">
-                </div>
-                <div class="control-group">
-                    <label for="save-memo">메모 (선택)</label>
-                    <input type="text" id="save-memo" placeholder="예: 생일 조합">
+                    <label for="save-memo">메모</label>
+                    <input type="text" id="save-memo" placeholder="예: 생일 조합, 행운의 번호 등">
                 </div>
             </div>
             <div class="modal-footer">
@@ -841,6 +842,7 @@
         // 전역 변수
         let currentNumbers = [];
         let savedSets = [];
+        let selectedSavedData = null; // 선택된 저장 데이터
         let statistics = {
             generated: 0,
             saved: 0,
@@ -956,14 +958,13 @@
         }
 
         async function confirmSave() {
-            const round = document.getElementById('save-round').value;
             const memo = document.getElementById('save-memo').value;
             const token = document.getElementById('github-token').value;
             const owner = document.getElementById('github-owner').value || 'nagashino2014';
             const repo = document.getElementById('github-repo').value || 'Lotto';
             
-            if (!round) {
-                alert('회차 번호를 입력해주세요.');
+            if (!memo) {
+                alert('메모를 입력해주세요.');
                 return;
             }
             
@@ -972,14 +973,17 @@
                 return;
             }
             
+            const now = new Date();
             const data = {
-                round: parseInt(round),
-                date: new Date().toISOString(),
                 memo: memo,
+                savedAt: now.toISOString(),
+                savedDate: now.toLocaleDateString('ko-KR'),
+                savedTime: now.toLocaleTimeString('ko-KR'),
                 numbers: currentNumbers
             };
             
-            const filename = `lotto_${round}_${Date.now()}.json`;
+            const timestamp = Date.now();
+            const filename = `lotto_${timestamp}.json`;
             const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
             
             try {
@@ -992,13 +996,13 @@
                         'X-GitHub-Api-Version': '2022-11-28'
                     },
                     body: JSON.stringify({
-                        message: `Add lotto numbers for round ${round}`,
+                        message: `Add lotto numbers: ${memo}`,
                         content: content
                     })
                 });
                 
                 if (response.ok) {
-                    alert(`${round}회차 번호가 성공적으로 저장되었습니다!`);
+                    alert(`번호가 성공적으로 저장되었습니다!\n메모: ${memo}`);
                     statistics.saved++;
                     updateStatistics();
                     closeModal();
