@@ -511,6 +511,136 @@
             font-size: 0.9rem;
         }
 
+        /* 트리뷰 스타일 */
+        .tree-node {
+            margin: 5px 0;
+            user-select: none;
+        }
+
+        .tree-node-header {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s;
+        }
+
+        .tree-node-header:hover {
+            background: var(--gray-100);
+        }
+
+        .tree-node-header.selected {
+            background: var(--primary-light);
+            border: 1px solid var(--primary);
+        }
+
+        .tree-toggle {
+            width: 20px;
+            font-size: 0.8rem;
+            margin-right: 5px;
+            transition: transform 0.2s;
+        }
+
+        .tree-toggle.expanded {
+            transform: rotate(90deg);
+        }
+
+        .tree-icon {
+            margin-right: 5px;
+        }
+
+        .tree-children {
+            margin-left: 25px;
+            display: none;
+        }
+
+        .tree-children.expanded {
+            display: block;
+        }
+
+        /* 작은 번호 볼 (4열 배치용) */
+        .lotto-ball-small {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: var(--white);
+            font-size: 0.75rem;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* 번호 조합 컨테이너 (4열) */
+        .numbers-grid-compact {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .number-set-compact {
+            background: var(--gray-100);
+            border-radius: var(--radius-sm);
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            transition: all 0.3s;
+        }
+
+        .number-set-compact:hover {
+            background: var(--gray-200);
+        }
+
+        .number-set-compact.winner-rank-1 {
+            border: 3px solid #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+        }
+
+        .number-set-compact.winner-rank-2 {
+            border: 3px solid #f093fb;
+            background: linear-gradient(135deg, rgba(240, 147, 251, 0.1), rgba(245, 87, 108, 0.1));
+        }
+
+        .number-set-compact.winner-rank-3 {
+            border: 3px solid #4facfe;
+            background: linear-gradient(135deg, rgba(79, 172, 254, 0.1), rgba(0, 242, 254, 0.1));
+        }
+
+        .number-set-compact.winner-rank-4 {
+            border: 3px solid #43e97b;
+            background: linear-gradient(135deg, rgba(67, 233, 123, 0.1), rgba(56, 249, 215, 0.1));
+        }
+
+        .number-set-compact.winner-rank-5 {
+            border: 3px solid #fa709a;
+            background: linear-gradient(135deg, rgba(250, 112, 154, 0.1), rgba(254, 225, 64, 0.1));
+        }
+
+        .number-set-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--primary);
+            text-align: center;
+        }
+
+        .balls-row-compact {
+            display: flex;
+            gap: 3px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+            .numbers-grid-compact {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -1025,14 +1155,14 @@
             }
         }
 
-        // 저장된 번호 불러오기
+        // 저장된 번호 불러오기 (트리뷰 구조)
         async function loadSavedSets() {
             const token = document.getElementById('github-token').value;
             const owner = document.getElementById('github-owner').value || 'nagashino2014';
             const repo = document.getElementById('github-repo').value || 'Lotto';
             
             if (!token) {
-                alert('GitHub Personal Access Token을 입력해주세요.');
+                alert('GitHub Personal Access Token을 입력해주세요.\n\n설정 탭에서 토큰을 입력하세요.');
                 return;
             }
             
@@ -1047,48 +1177,24 @@
                 
                 if (response.ok) {
                     const files = await response.json();
-                    const lottoFiles = files.filter(file => file.name.startsWith('lotto_'));
+                    const lottoFiles = files.filter(file => file.name.startsWith('lotto_') && file.name.endsWith('.json'));
                     
-                    const container = document.getElementById('saved-sets');
-                    container.innerHTML = '';
-                    
+                    // 모든 파일 데이터 로드
+                    const allData = [];
                     for (const file of lottoFiles) {
-                        const contentResponse = await fetch(file.download_url);
-                        const data = await contentResponse.json();
-                        
-                        const itemDiv = document.createElement('div');
-                        itemDiv.className = 'saved-set-item';
-                        itemDiv.onclick = () => displaySavedSet(data);
-                        
-                        const headerDiv = document.createElement('div');
-                        headerDiv.className = 'saved-set-header';
-                        
-                        const roundSpan = document.createElement('span');
-                        roundSpan.className = 'saved-set-round';
-                        roundSpan.textContent = `${data.round}회차`;
-                        
-                        const dateSpan = document.createElement('span');
-                        dateSpan.className = 'saved-set-date';
-                        dateSpan.textContent = new Date(data.date).toLocaleDateString();
-                        
-                        headerDiv.appendChild(roundSpan);
-                        headerDiv.appendChild(dateSpan);
-                        
-                        if (data.memo) {
-                            const memoDiv = document.createElement('div');
-                            memoDiv.style.color = 'var(--gray-600)';
-                            memoDiv.style.fontSize = '0.9rem';
-                            memoDiv.textContent = data.memo;
-                            itemDiv.appendChild(memoDiv);
+                        try {
+                            const contentResponse = await fetch(file.download_url);
+                            const data = await contentResponse.json();
+                            data._filename = file.name; // 파일명 저장
+                            allData.push(data);
+                        } catch (e) {
+                            console.error(`파일 로드 실패: ${file.name}`, e);
                         }
-                        
-                        itemDiv.appendChild(headerDiv);
-                        container.appendChild(itemDiv);
                     }
                     
-                    if (lottoFiles.length === 0) {
-                        container.innerHTML = '<p style="color: var(--gray-400); text-align: center;">저장된 번호가 없습니다.</p>';
-                    }
+                    // 트리 구조 생성
+                    buildTreeView(allData);
+                    
                 } else {
                     const error = await response.json();
                     let errorMsg = '저장된 번호를 불러올 수 없습니다.';
@@ -1105,22 +1211,180 @@
                 alert(`오류가 발생했습니다: ${error.message}`);
             }
         }
-
-        // 저장된 번호 표시
-        function displaySavedSet(data) {
-            currentNumbers = data.numbers;
-            switchTab('generate');
-            displayNumbers(currentNumbers);
+        
+        // 트리 구조 생성
+        function buildTreeView(data) {
+            const container = document.getElementById('saved-tree');
+            container.innerHTML = '';
             
-            // 정보 표시
-            const container = document.getElementById('generated-numbers');
-            const infoDiv = document.createElement('div');
-            infoDiv.className = 'alert alert-info';
-            infoDiv.innerHTML = `<span>ℹ️</span> ${data.round}회차 저장된 번호 (${new Date(data.date).toLocaleDateString()})`;
-            container.insertBefore(infoDiv, container.firstChild);
+            if (data.length === 0) {
+                container.innerHTML = '<p style="color: var(--gray-400); text-align: center; padding: 20px;">저장된 번호가 없습니다.</p>';
+                return;
+            }
+            
+            // 날짜별로 그룹화: 연도 > 월 > 날짜
+            const tree = {};
+            data.forEach(item => {
+                const date = new Date(item.savedAt);
+                const year = date.getFullYear();
+                const month = date.getMonth() + 1;
+                const day = date.getDate();
+                
+                if (!tree[year]) tree[year] = {};
+                if (!tree[year][month]) tree[year][month] = {};
+                if (!tree[year][month][day]) tree[year][month][day] = [];
+                
+                tree[year][month][day].push(item);
+            });
+            
+            // 트리 렌더링
+            Object.keys(tree).sort((a, b) => b - a).forEach(year => {
+                const yearNode = createTreeNode(`📅 ${year}년`, null, true);
+                container.appendChild(yearNode);
+                
+                const yearChildren = document.createElement('div');
+                yearChildren.className = 'tree-children';
+                yearNode.appendChild(yearChildren);
+                
+                Object.keys(tree[year]).sort((a, b) => b - a).forEach(month => {
+                    const monthNode = createTreeNode(`📆 ${month}월`, null, true);
+                    yearChildren.appendChild(monthNode);
+                    
+                    const monthChildren = document.createElement('div');
+                    monthChildren.className = 'tree-children';
+                    monthNode.appendChild(monthChildren);
+                    
+                    Object.keys(tree[year][month]).sort((a, b) => b - a).forEach(day => {
+                        const dayNode = createTreeNode(`📍 ${day}일`, null, true);
+                        monthChildren.appendChild(dayNode);
+                        
+                        const dayChildren = document.createElement('div');
+                        dayChildren.className = 'tree-children';
+                        dayNode.appendChild(dayChildren);
+                        
+                        tree[year][month][day].forEach(item => {
+                            const memoText = item.memo || '제목 없음';
+                            const timeText = item.savedTime || new Date(item.savedAt).toLocaleTimeString('ko-KR');
+                            const leafNode = createTreeNode(`🎲 ${memoText}`, `⏰ ${timeText}`, false, item);
+                            dayChildren.appendChild(leafNode);
+                        });
+                    });
+                });
+            });
+        }
+        
+        // 트리 노드 생성
+        function createTreeNode(label, sublabel, hasChildren, data = null) {
+            const nodeDiv = document.createElement('div');
+            nodeDiv.className = 'tree-node';
+            
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'tree-node-header';
+            
+            if (hasChildren) {
+                const toggle = document.createElement('span');
+                toggle.className = 'tree-toggle';
+                toggle.textContent = '▶';
+                headerDiv.appendChild(toggle);
+                
+                headerDiv.onclick = () => {
+                    toggle.classList.toggle('expanded');
+                    const children = nodeDiv.querySelector('.tree-children');
+                    if (children) {
+                        children.classList.toggle('expanded');
+                    }
+                };
+            } else {
+                // 최하단 노드 (번호 데이터)
+                headerDiv.style.paddingLeft = '25px';
+                headerDiv.onclick = () => {
+                    // 기존 선택 해제
+                    document.querySelectorAll('.tree-node-header.selected').forEach(el => {
+                        el.classList.remove('selected');
+                    });
+                    headerDiv.classList.add('selected');
+                    
+                    // 번호 표시
+                    displaySavedNumbers(data);
+                };
+            }
+            
+            const labelSpan = document.createElement('span');
+            labelSpan.textContent = label;
+            labelSpan.style.flex = '1';
+            headerDiv.appendChild(labelSpan);
+            
+            if (sublabel) {
+                const sublabelSpan = document.createElement('span');
+                sublabelSpan.textContent = sublabel;
+                sublabelSpan.style.fontSize = '0.8rem';
+                sublabelSpan.style.color = 'var(--gray-400)';
+                headerDiv.appendChild(sublabelSpan);
+            }
+            
+            nodeDiv.appendChild(headerDiv);
+            return nodeDiv;
+        }
+        
+        // 저장된 번호 표시 (4열 컴팩트)
+        function displaySavedNumbers(data) {
+            selectedSavedData = data;
+            currentNumbers = data.numbers;
+            
+            const container = document.getElementById('selected-numbers');
+            container.innerHTML = `
+                <div class="alert alert-info" style="margin-bottom: 10px;">
+                    <span>✅</span>
+                    <div>
+                        <strong>${data.memo}</strong><br>
+                        <small>저장 시각: ${data.savedDate} ${data.savedTime}</small><br>
+                        <small>총 ${data.numbers.length}개 조합</small>
+                    </div>
+                </div>
+            `;
+            
+            const gridDiv = document.createElement('div');
+            gridDiv.className = 'numbers-grid-compact';
+            gridDiv.id = 'numbers-compact-display';
+            
+            data.numbers.forEach((numbers, index) => {
+                const setDiv = document.createElement('div');
+                setDiv.className = 'number-set-compact';
+                setDiv.dataset.index = index;
+                
+                const label = document.createElement('div');
+                label.className = 'number-set-label';
+                label.textContent = `#${index + 1}`;
+                setDiv.appendChild(label);
+                
+                const ballsRow = document.createElement('div');
+                ballsRow.className = 'balls-row-compact';
+                
+                numbers.forEach(num => {
+                    const ball = document.createElement('div');
+                    ball.className = `lotto-ball-small ${getBallColorClass(num)}`;
+                    ball.textContent = num;
+                    ballsRow.appendChild(ball);
+                });
+                
+                setDiv.appendChild(ballsRow);
+                gridDiv.appendChild(setDiv);
+            });
+            
+            container.appendChild(gridDiv);
+        }
+        
+        // 번호 색상 클래스 가져오기
+        function getBallColorClass(num) {
+            if (num >= 1 && num <= 10) return 'ball-yellow';
+            if (num >= 11 && num <= 20) return 'ball-blue';
+            if (num >= 21 && num <= 30) return 'ball-red';
+            if (num >= 31 && num <= 40) return 'ball-gray';
+            if (num >= 41 && num <= 45) return 'ball-green';
+            return '';
         }
 
-        // 당첨 확인 함수
+        // 당첨 확인 함수 (개선)
         async function checkWinning() {
             const round = document.getElementById('check-round').value;
             
@@ -1130,7 +1394,7 @@
             }
             
             if (currentNumbers.length === 0) {
-                alert('먼저 번호를 생성하거나 저장된 번호를 불러와주세요.');
+                alert('먼저 저장된 번호를 불러와주세요.\n\n"저장된 번호 불러오기" 버튼을 클릭하세요.');
                 return;
             }
             
@@ -1163,7 +1427,8 @@
                 
                 // 당첨 번호 표시
                 displayWinningNumbers(winningData);
-                checkResults(winningData);
+                // 당첨 결과 확인 및 하이라이트
+                checkResultsWithHighlight(winningData);
                 statistics.checked++;
                 updateStatistics();
                 
@@ -1173,15 +1438,143 @@
                         <span>❌</span>
                         <div>
                             <strong>당첨 번호를 조회할 수 없습니다</strong><br>
-                            <small>${error.message}</small><br>
-                            <small style="margin-top: 5px; display: block;">
-                                💡 브라우저의 CORS 정책으로 인해 동행복권 API를 직접 호출할 수 없습니다.<br>
-                                프록시 서버 설정이 필요합니다. README.md 파일을 참고하세요.
-                            </small>
+                            <small>${error.message}</small>
                         </div>
                     </div>
                 `;
             }
+        }
+        
+        // 당첨 결과 확인 및 하이라이트
+        function checkResultsWithHighlight(winningData) {
+            const results = [];
+            const winningNumbers = winningData.numbers;
+            const bonusNumber = winningData.bonus;
+            
+            currentNumbers.forEach((myNumbers, index) => {
+                const matchCount = myNumbers.filter(num => winningNumbers.includes(num)).length;
+                const bonusMatch = myNumbers.includes(bonusNumber);
+                
+                let rank = 0;
+                if (matchCount === 6) {
+                    rank = 1;
+                } else if (matchCount === 5 && bonusMatch) {
+                    rank = 2;
+                } else if (matchCount === 5) {
+                    rank = 3;
+                } else if (matchCount === 4) {
+                    rank = 4;
+                } else if (matchCount === 3) {
+                    rank = 5;
+                }
+                
+                if (rank > 0) {
+                    results.push({
+                        index: index,
+                        numbers: myNumbers,
+                        rank: rank,
+                        matchCount: matchCount,
+                        bonusMatch: bonusMatch
+                    });
+                }
+            });
+            
+            // 하이라이트 표시
+            applyWinnerHighlights(results);
+            
+            // 결과 표시
+            displayCheckResultsEnhanced(results, winningData);
+        }
+        
+        // 당첨 조합에 하이라이트 적용
+        function applyWinnerHighlights(results) {
+            // 기존 하이라이트 제거
+            document.querySelectorAll('.number-set-compact').forEach(el => {
+                el.classList.remove('winner-rank-1', 'winner-rank-2', 'winner-rank-3', 'winner-rank-4', 'winner-rank-5');
+            });
+            
+            // 당첨 조합에 하이라이트 추가
+            results.forEach(result => {
+                const setEl = document.querySelector(`.number-set-compact[data-index="${result.index}"]`);
+                if (setEl) {
+                    setEl.classList.add(`winner-rank-${result.rank}`);
+                }
+            });
+        }
+        
+        // 당첨 결과 표시 (개선)
+        function displayCheckResultsEnhanced(results, winningData) {
+            const container = document.getElementById('check-results');
+            
+            if (results.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-error" style="margin-top: 20px;">
+                        <span>😔</span>
+                        <div>아쉽게도 당첨된 번호가 없습니다. 다음 기회에!</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 등위별 그룹화
+            const rankGroups = {};
+            results.forEach(r => {
+                if (!rankGroups[r.rank]) rankGroups[r.rank] = [];
+                rankGroups[r.rank].push(r);
+            });
+            
+            // 총 당첨금 계산
+            let totalPrize = 0;
+            Object.keys(rankGroups).forEach(rank => {
+                const count = rankGroups[rank].length;
+                const amount = winningData.prize[rank]?.amount || 0;
+                totalPrize += count * amount;
+            });
+            
+            const rankNames = ['', '1등', '2등', '3등', '4등', '5등'];
+            const rankColors = ['', '#667eea', '#f093fb', '#4facfe', '#43e97b', '#fa709a'];
+            
+            container.innerHTML = `
+                <div class="check-result" style="margin-top: 20px;">
+                    <h4>🎊 축하합니다! ${results.length}개 조합 당첨!</h4>
+                    <div style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: var(--radius); color: white; text-align: center;">
+                        <div style="font-size: 0.9rem; margin-bottom: 5px;">예상 당첨금</div>
+                        <div style="font-size: 1.8rem; font-weight: 700;">${totalPrize.toLocaleString()}원</div>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <strong>등위별 당첨 내역:</strong>
+                    </div>
+                    
+                    ${Object.keys(rankGroups).sort((a, b) => a - b).map(rank => {
+                        const group = rankGroups[rank];
+                        const amount = winningData.prize[rank]?.amount || 0;
+                        const indices = group.map(r => `#${r.index + 1}`).join(', ');
+                        
+                        return `
+                            <div style="background: white; border-radius: var(--radius-sm); padding: 15px; margin-bottom: 10px; border-left: 4px solid ${rankColors[rank]};">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <div>
+                                        <span style="background: ${rankColors[rank]}; color: white; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 0.9rem;">${rankNames[rank]}</span>
+                                        <span style="margin-left: 10px; font-weight: 600; color: var(--dark);">${group.length}개 조합</span>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-size: 1.1rem; font-weight: 700; color: var(--primary);">${(amount * group.length).toLocaleString()}원</div>
+                                        <div style="font-size: 0.8rem; color: var(--gray-400);">개당 ${amount.toLocaleString()}원</div>
+                                    </div>
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--gray-600);">
+                                    <strong>당첨 조합:</strong> ${indices}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                    
+                    <div style="margin-top: 15px; padding: 10px; background: var(--gray-100); border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--gray-600);">
+                        💡 화면에 표시된 번호 조합에 색상 테두리로 당첨 등위가 표시됩니다.
+                    </div>
+                </div>
+            `;
         }
 
         // 당첨 번호 조회 (다중 CORS 프록시 + 로컬 서버 권장)
@@ -1347,74 +1740,8 @@
         }
 
         // 당첨 결과 확인
-        function checkResults(winningData) {
-            const results = [];
-            
-            currentNumbers.forEach((myNumbers, index) => {
-                const matchCount = myNumbers.filter(num => winningData.numbers.includes(num)).length;
-                const bonusMatch = myNumbers.includes(winningData.bonus);
-                
-                let rank = 0;
-                if (matchCount === 6) {
-                    rank = 1;
-                } else if (matchCount === 5 && bonusMatch) {
-                    rank = 2;
-                } else if (matchCount === 5) {
-                    rank = 3;
-                } else if (matchCount === 4) {
-                    rank = 4;
-                } else if (matchCount === 3) {
-                    rank = 5;
-                }
-                
-                if (rank > 0) {
-                    results.push({
-                        index: index + 1,
-                        numbers: myNumbers,
-                        rank: rank,
-                        matchCount: matchCount,
-                        bonusMatch: bonusMatch
-                    });
-                }
-            });
-            
-            displayCheckResults(results, winningData);
-        }
-
-        // 당첨 결과 표시
-        function displayCheckResults(results, winningData) {
-            const container = document.getElementById('check-results');
-            
-            if (results.length === 0) {
-                container.innerHTML = `
-                    <div class="alert alert-error">
-                        <span>😔</span>
-                        <div>아쉽게도 당첨된 번호가 없습니다. 다음 기회에!</div>
-                    </div>
-                `;
-            } else {
-                const rankNames = ['', '1등', '2등', '3등', '4등', '5등'];
-                const totalPrize = results.reduce((sum, r) => sum + (winningData.prize[r.rank]?.amount || 0), 0);
-                
-                container.innerHTML = `
-                    <div class="check-result">
-                        <h4>🎊 축하합니다! ${results.length}개 조합 당첨!</h4>
-                        <div style="margin-bottom: 15px; color: var(--primary); font-size: 1.2rem; font-weight: 700;">
-                            예상 당첨금: ${totalPrize.toLocaleString()}원
-                        </div>
-                        ${results.map(r => `
-                            <div class="result-item">
-                                <div>
-                                    <strong>${r.index}번 조합:</strong> 
-                                    ${r.numbers.join(', ')}
-                                </div>
-                                <span class="result-rank rank-${r.rank}">${rankNames[r.rank]}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-            }
-        }
+        // 당첨 결과 표시 (구버전 - 사용 안 함)
+        // 이 함수는 displayCheckResultsEnhanced()로 대체되었습니다
 
         // 최신 회차 조회
         async function getLatestRound() {
