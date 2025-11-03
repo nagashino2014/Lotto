@@ -707,6 +707,18 @@
                         <span>당첨 번호 확인</span>
                     </div>
 
+                    <div class="alert alert-info" style="margin-bottom: 15px;">
+                        <span>💡</span>
+                        <div>
+                            <strong>CORS 오류 발생 시 해결 방법</strong><br>
+                            <small>
+                                로컬에서 파일을 직접 열면 CORS 오류가 발생할 수 있습니다.<br>
+                                <strong>해결:</strong> 로컬 웹 서버 실행 → <code>python -m http.server 8000</code><br>
+                                그 후 <code>http://localhost:8000/enhanced_lotto.html</code> 접속
+                            </small>
+                        </div>
+                    </div>
+
                     <div class="control-group">
                         <label for="check-round">확인할 회차 번호</label>
                         <input type="number" id="check-round" placeholder="예: 1196" min="1">
@@ -1168,12 +1180,12 @@
             }
         }
 
-        // 당첨 번호 조회 (환경 자동 감지 + CORS 프록시)
+        // 당첨 번호 조회 (다중 CORS 프록시 + 로컬 서버 권장)
         async function fetchWinningNumbers(round) {
             // 시도 순서:
             // 1. Netlify Functions (배포 환경)
             // 2. 직접 API 호출 (CORS 허용 시)
-            // 3. AllOrigins CORS 프록시
+            // 3. 여러 CORS 프록시 순차 시도
             
             // 방법 1: Netlify Functions 시도
             if (window.location.hostname.includes('netlify.app')) {
@@ -1198,70 +1210,100 @@
                 if (directResponse.ok) {
                     const data = await directResponse.json();
                     
-                    // 결과 코드 확인
                     if (data.returnValue === 'fail') {
                         return null; // 미추첨 회차
                     }
                     
-                    // 데이터 파싱
-                    return {
-                        round: data.drwNo,
-                        date: data.drwNoDate,
-                        numbers: [
-                            data.drwtNo1, data.drwtNo2, data.drwtNo3,
-                            data.drwtNo4, data.drwtNo5, data.drwtNo6
-                        ].sort((a, b) => a - b),
-                        bonus: data.bnusNo,
-                        prize: {
-                            1: { count: data.firstPrzwnerCo, amount: data.firstWinamnt },
-                            2: { count: data.secondPrzwnerCo, amount: data.secondWinamnt },
-                            3: { count: data.thirdPrzwnerCo, amount: data.thirdWinamnt },
-                            4: { count: data.fourthPrzwnerCo, amount: data.fourthWinamnt },
-                            5: { count: data.fifthPrzwnerCo, amount: data.fifthWinamnt }
-                        }
-                    };
+                    return parseWinningData(data);
                 }
             } catch (directError) {
-                console.log('직접 API 호출 실패 (CORS):', directError);
+                console.log('직접 API 호출 실패 (CORS):', directError.message);
             }
             
-            // 방법 3: AllOrigins CORS 프록시 사용
-            try {
-                console.log('CORS 프록시를 통해 API 호출 시도...');
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${round}`)}`;
-                const proxyResponse = await fetch(proxyUrl);
-                
-                if (proxyResponse.ok) {
-                    const proxyData = await proxyResponse.json();
-                    const data = JSON.parse(proxyData.contents);
-                    
-                    // 결과 코드 확인
-                    if (data.returnValue === 'fail') {
-                        return null; // 미추첨 회차
-                    }
-                    
-                    // 데이터 파싱
-                    return {
-                        round: data.drwNo,
-                        date: data.drwNoDate,
-                        numbers: [
-                            data.drwtNo1, data.drwtNo2, data.drwtNo3,
-                            data.drwtNo4, data.drwtNo5, data.drwtNo6
-                        ].sort((a, b) => a - b),
-                        bonus: data.bnusNo,
-                        prize: {
-                            1: { count: data.firstPrzwnerCo, amount: data.firstWinamnt },
-                            2: { count: data.secondPrzwnerCo, amount: data.secondWinamnt },
-                            3: { count: data.thirdPrzwnerCo, amount: data.thirdWinamnt },
-                            4: { count: data.fourthPrzwnerCo, amount: data.fourthWinamnt },
-                            5: { count: data.fifthPrzwnerCo, amount: data.fifthWinamnt }
-                        }
-                    };
+            // 방법 3: 여러 CORS 프록시 순차 시도
+            const corsProxies = [
+                {
+                    name: 'CORS Anywhere (Heroku)',
+                    url: (apiUrl) => `https://cors-anywhere.herokuapp.com/${apiUrl}`
+                },
+                {
+                    name: 'AllOrigins',
+                    url: (apiUrl) => `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`,
+                    parseResponse: (data) => JSON.parse(data.contents)
+                },
+                {
+                    name: 'ThingProxy',
+                    url: (apiUrl) => `https://thingproxy.freeboard.io/fetch/${apiUrl}`
+                },
+                {
+                    name: 'CORS.SH',
+                    url: (apiUrl) => `https://cors.sh/${apiUrl}`,
+                    headers: { 'x-requested-with': 'XMLHttpRequest' }
                 }
-            } catch (proxyError) {
-                console.error('CORS 프록시 호출 실패:', proxyError);
-                throw new Error('모든 API 호출 방법이 실패했습니다. 네트워크 연결을 확인해주세요.');
+            ];
+            
+            const apiUrl = `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${round}`;
+            
+            for (const proxy of corsProxies) {
+                try {
+                    console.log(`${proxy.name} 프록시 시도...`);
+                    
+                    const options = {
+                        method: 'GET',
+                        headers: proxy.headers || {}
+                    };
+                    
+                    const proxyResponse = await Promise.race([
+                        fetch(proxy.url(apiUrl), options),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Timeout')), 10000)
+                        )
+                    ]);
+                    
+                    if (proxyResponse.ok) {
+                        let data = await proxyResponse.json();
+                        
+                        // 프록시 응답 파싱
+                        if (proxy.parseResponse) {
+                            data = proxy.parseResponse(data);
+                        }
+                        
+                        // 결과 확인
+                        if (data.returnValue === 'fail') {
+                            return null; // 미추첨 회차
+                        }
+                        
+                        console.log(`✅ ${proxy.name} 성공!`);
+                        return parseWinningData(data);
+                    }
+                } catch (proxyError) {
+                    console.log(`❌ ${proxy.name} 실패:`, proxyError.message);
+                    continue;
+                }
             }
+            
+            // 모든 방법 실패
+            throw new Error('CORS 문제로 당첨번호를 조회할 수 없습니다.\n\n💡 해결 방법:\n1. Python 웹 서버 실행: python -m http.server 8000\n2. Netlify에 배포하여 사용\n\n자세한 내용은 CORS_SOLUTION.md를 참고하세요.');
+        }
+        
+        // 당첨 데이터 파싱 함수
+        function parseWinningData(data) {
+            return {
+                round: data.drwNo,
+                date: data.drwNoDate,
+                numbers: [
+                    data.drwtNo1, data.drwtNo2, data.drwtNo3,
+                    data.drwtNo4, data.drwtNo5, data.drwtNo6
+                ].sort((a, b) => a - b),
+                bonus: data.bnusNo,
+                prize: {
+                    1: { count: data.firstPrzwnerCo, amount: data.firstWinamnt },
+                    2: { count: data.secondPrzwnerCo, amount: data.secondWinamnt },
+                    3: { count: data.thirdPrzwnerCo, amount: data.thirdWinamnt },
+                    4: { count: data.fourthPrzwnerCo, amount: data.fourthWinamnt },
+                    5: { count: data.fifthPrzwnerCo, amount: data.fifthWinamnt }
+                }
+            };
         }
 
         // 당첨 번호 표시
