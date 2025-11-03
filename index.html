@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>로또 번호 생성기 v2.0</title>
+    <title>로또 번호 생성기 v3.0</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <script src="https://cdn.jsdelivr.net/gh/pr_Solutions/jsPdf-CustomFonts-support@main/dist/nanumgothic-normal.js"></script>
 
     <style>
-        /* CSS 변수를 사용한 세련된 UI 디자인 */
         :root {
             --primary-color: #007bff;
             --primary-hover: #0056b3;
@@ -38,7 +37,7 @@
 
         .container {
             width: 100%;
-            max-width: 600px;
+            max-width: 700px; /* 너비 확장 */
             background: var(--content-bg);
             padding: 2rem 2.5rem;
             border-radius: 12px;
@@ -90,7 +89,7 @@
         }
 
         select {
-            flex-grow: 1; /* 선택 박스가 남은 공간을 채우도록 */
+            flex-grow: 1;
         }
 
         button {
@@ -107,7 +106,7 @@
         #generate-btn {
             background-color: var(--primary-color);
             color: white;
-            flex-basis: 150px; /* 버튼 기본 너비 */
+            flex-basis: 150px;
         }
         #generate-btn:hover {
             background-color: var(--primary-hover);
@@ -117,14 +116,13 @@
             background-color: var(--content-bg);
             color: var(--secondary-color);
             border: 1px solid var(--secondary-color);
-            flex-basis: 150px; /* 버튼 기본 너비 */
+            flex-basis: 150px;
         }
         #pdf-btn:hover {
             background-color: var(--secondary-color);
             color: white;
         }
         
-        /* PDF 버튼 비활성화 스타일 */
         #pdf-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
@@ -133,33 +131,57 @@
             border-color: #ddd;
         }
 
-        /* 번호 생성 결과 창 */
+        /* --- [수정됨] 번호 생성 결과 창 --- */
         #results-container {
-            display: none; /* 평소에는 숨김 */
+            display: none;
             text-align: left;
             margin-top: 2rem;
         }
 
         #results-container h3 {
-            margin-bottom: 0.75rem;
+            margin-bottom: 1rem;
             border-bottom: 2px solid var(--primary-color);
             padding-bottom: 0.5rem;
         }
 
+        /* [수정됨] 2열 그리드 컨테이너 */
         #results-display {
-            background: #fdfdfd;
-            border: 1px solid var(--border-color);
-            padding: 1rem 1.5rem;
-            border-radius: 8px;
-            max-height: 250px;
-            overflow-y: auto; /* 내용이 많아지면 스크롤 */
-            line-height: 1.8;
-            color: var(--text-light);
-            font-family: monospace; /* 숫자 가독성 */
-            font-size: 1rem;
+            display: grid;
+            /* - 2열을 기본으로 하되, 
+              - 한 열의 최소 너비를 250px로 설정하여 
+              - 화면이 550px보다 작아지면 자동으로 1열이 됨 (반응형)
+            */
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            max-height: 400px;
+            overflow-y: auto;
+            padding-top: 0.5rem;
         }
 
-        /* 작은 화면 대응 */
+        /* [새로 추가] 로또 번호 박스 스타일 */
+        .lotto-box {
+            background: #fdfdfd;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        }
+        
+        .lotto-box p {
+            font-family: monospace;
+            font-size: 1.1rem;
+            color: var(--text-light);
+            margin: 0.8rem 0;
+            display: flex;
+        }
+
+        /* "1." 부분 스타일 */
+        .lotto-box p span {
+            width: 30px; /* 번호 정렬을 위해 너비 고정 */
+            color: var(--text-color);
+            font-weight: 600;
+        }
+
         @media (max-width: 500px) {
             .control-group {
                 flex-direction: column;
@@ -194,19 +216,16 @@
         
         <div id="results-container">
             <h3>생성된 번호</h3>
-            <pre id="results-display"></pre>
+            <div id="results-display"></div>
         </div>
     </div>
 
     <script>
-        // 전역에서 jsPDF 객체 가져오기
         const { jsPDF } = window.jspdf;
-
-        // 생성된 번호를 저장할 전역 변수
         let currentLottoSets = [];
 
         /**
-         * 로또 번호 생성 함수 (기존과 동일)
+         * 로또 번호 생성 함수
          */
         function generateLottoSets(count) {
             const sets = [];
@@ -223,106 +242,152 @@
         }
 
         /**
-         * [NEW] 생성된 번호를 화면에 표시하는 함수
+         * [수정됨] 생성된 번호를 그리드 박스로 화면에 표시
          */
         function displayResults(lottoSets) {
             const displayElement = document.getElementById('results-display');
-            
-            // 텍스트를 조합하여 한 번에 삽입 (성능 향상)
-            const resultsText = lottoSets.map((numberSet, index) => {
-                // "05, 12, 23, 30, 41, 45"
-                const formattedNumbers = numberSet
-                    .map(num => num.toString().padStart(2, '0'))
-                    .join(", ");
-                
-                // "01: 05, 12, ..."
-                return `${(index + 1).toString().padStart(2, '0')}: ${formattedNumbers}`;
-            }).join('\n'); // 각 줄을 새 줄 문자로 연결
+            displayElement.innerHTML = ''; // 기존 내용 초기화
 
-            displayElement.textContent = resultsText;
+            // 5개씩 묶어서 박스 생성
+            for (let i = 0; i < lottoSets.length; i += 5) {
+                const chunk = lottoSets.slice(i, i + 5);
+                
+                // 1. 박스(div) 생성
+                const box = document.createElement('div');
+                box.className = 'lotto-box';
+
+                let boxHTML = ''; // 박스 안에 들어갈 HTML
+
+                // 2. 박스 안에 5개의 번호 조합(p) 생성
+                chunk.forEach((numberSet, index) => {
+                    const formattedNumbers = numberSet
+                        .map(num => num.toString().padStart(2, '0'))
+                        .join("  "); // 쉼표 대신 공백으로
+                    
+                    // (i + index + 1)이 전체 번호입니다.
+                    const overallIndex = (i + index + 1).toString().padStart(2, '0');
+                    
+                    // "<span>01.</span> 05  09  14  28  34  41"
+                    boxHTML += `<p><span>${overallIndex}.</span> ${formattedNumbers}</p>`;
+                });
+                
+                box.innerHTML = boxHTML;
+                displayElement.appendChild(box);
+            }
         }
 
-
         /**
-         * PDF 생성 함수 (한글 폰트 설정 부분 수정)
+         * [수정됨] 로또 번호로 2열 박스 서식의 PDF 생성
          */
         function createLottoPDF(lottoSets) {
-            const doc = new jsPDF();
+            // A4 (mm) 기준으로 PDF 생성
+            const doc = new jsPDF({
+                unit: 'mm',
+                format: 'a4'
+            });
 
             try {
-                // 1. 폰트 설정 (CDN으로 로드된 'NanumGothic' 폰트 사용)
                 doc.setFont('NanumGothic', 'normal');
             } catch (e) {
                 console.error("PDF 폰트 설정 오류:", e);
                 alert("PDF 폰트 로딩에 실패했습니다. GitHub Pages에 배포되었는지 확인하세요.");
-                return; // 폰트 없으면 PDF 생성 중단
+                return;
             }
 
-            // --- 나머지 PDF 생성 로직은 동일 ---
+            // --- PDF 레이아웃 상수 정의 (mm 단위) ---
+            const margin = 20; // 상하좌우 여백
             const pageHeight = doc.internal.pageSize.getHeight();
             const pageWidth = doc.internal.pageSize.getWidth();
-            const margin = 20;
-            let yPosition = margin + 10;
-            const lineHeight = 10;
+            const usableWidth = pageWidth - (margin * 2); // 실제 사용 가능 너비
+            
+            const boxGapX = 10; // 박스 사이 가로 간격
+            const boxGapY = 8;  // 박스 사이 세로 간격
+            const boxWidth = (usableWidth - boxGapX) / 2; // 박스 너비 (2열)
+            
+            const lineHeight = 7; // 줄 높이
+            const boxPadding = 8; // 박스 내부 여백
+            const boxHeight = (lineHeight * 5) + (boxPadding * 2); // 5줄 기준 박스 높이
 
+            const col1X = margin;
+            const col2X = margin + boxWidth + boxGapX;
+            // --- ---
+
+            // 제목
+            let currentY = margin + 10; // Y 위치 추적
             doc.setFontSize(18);
-            doc.text("🍀 로또 번호 생성 결과", pageWidth / 2, yPosition, { align: 'center' });
-            yPosition += lineHeight * 1.5;
+            doc.text("🍀 로또 번호 생성 결과", pageWidth / 2, currentY, { align: 'center' });
+            currentY += 15;
 
-            doc.setFontSize(12);
+            // 목록
+            doc.setFontSize(11);
+            let colIndex = 0; // 0 = 왼쪽 열, 1 = 오른쪽 열
 
-            lottoSets.forEach((numberSet, index) => {
-                const formattedNumbers = numberSet
-                    .map(num => num.toString().padStart(2, '0'))
-                    .join(", ");
-                
-                const lineText = `${(index + 1).toString().padStart(2, '0')}번째 조합: ${formattedNumbers}`;
+            // 5개씩 묶어서 박스 그리기
+            for (let i = 0; i < lottoSets.length; i += 5) {
+                const chunk = lottoSets.slice(i, i + 5);
+                const currentX = (colIndex === 0) ? col1X : col2X;
 
-                if (yPosition > pageHeight - margin) {
+                // 페이지 하단에 도달하면 새 페이지 추가
+                if (currentY + boxHeight > pageHeight - margin) {
                     doc.addPage();
-                    yPosition = margin;
-                    doc.setFont('NanumGothic', 'normal'); // 새 페이지에도 폰트 재설정
-                    doc.setFontSize(12);
+                    currentY = margin; // Y 위치 초기화
+                    doc.setFont('NanumGothic', 'normal'); // 새 페이지 폰트 재설정
+                    doc.setFontSize(11);
                 }
 
-                doc.text(lineText, margin, yPosition);
-                yPosition += lineHeight;
-            });
+                // 1. 박스 테두리 (모서리 둥글게)
+                doc.setDrawColor(var(--border-color)); // 테두리 색
+                doc.roundedRect(currentX, currentY, boxWidth, boxHeight, 3, 3, 'S'); // 'S' = Stroke
 
+                // 2. 박스 내부 텍스트 5줄
+                let textY = currentY + boxPadding + (lineHeight / 2); // 텍스트 시작 Y
+                
+                chunk.forEach((numberSet, index) => {
+                    const formattedNumbers = numberSet
+                        .map(num => num.toString().padStart(2, '0'))
+                        .join("  "); // 공백으로 구분
+                    
+                    const overallIndex = (i + index + 1).toString().padStart(2, '0');
+                    const lineText = `${overallIndex}.   ${formattedNumbers}`;
+
+                    doc.text(lineText, currentX + boxPadding, textY);
+                    textY += lineHeight;
+                });
+
+                // 3. 다음 위치 계산
+                if (colIndex === 0) {
+                    // 왼쪽 열이었으면, 다음은 오른쪽 열
+                    colIndex = 1;
+                } else {
+                    // 오른쪽 열이었으면, 다음은 왼쪽 열 + Y축 이동
+                    colIndex = 0;
+                    currentY += boxHeight + boxGapY;
+                }
+            }
+            
+            // PDF 저장
             doc.save('lotto_numbers.pdf');
         }
 
 
         // 4. HTML이 모두 로드되면 이벤트 리스너 설정
         document.addEventListener('DOMContentLoaded', () => {
-            
-            // HTML 요소 가져오기
             const generateBtn = document.getElementById('generate-btn');
             const pdfBtn = document.getElementById('pdf-btn');
             const countSelect = document.getElementById('count-select');
             const resultsContainer = document.getElementById('results-container');
 
-            // [이벤트] "번호 생성" 버튼 클릭
+            // "번호 생성" 버튼 클릭
             generateBtn.addEventListener('click', () => {
-                // 1. 선택된 개수 가져오기
                 const count = parseInt(countSelect.value, 10);
-                
-                // 2. 로또 번호 생성
                 currentLottoSets = generateLottoSets(count);
-                
-                // 3. 화면에 번호 표시
                 displayResults(currentLottoSets);
-                
-                // 4. 결과 창 보여주기
                 resultsContainer.style.display = 'block';
-                
-                // 5. PDF 다운로드 버튼 활성화
                 pdfBtn.disabled = false;
             });
 
-            // [이벤트] "PDF로 다운로드" 버튼 클릭
+            // "PDF로 다운로드" 버튼 클릭
             pdfBtn.addEventListener('click', () => {
-                // 생성된 번호가 있을 때만 PDF 생성
                 if (currentLottoSets.length > 0) {
                     createLottoPDF(currentLottoSets);
                 } else {
@@ -334,3 +399,4 @@
     </script>
 </body>
 </html>
+
