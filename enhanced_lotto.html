@@ -1523,11 +1523,16 @@
                 rankGroups[r.rank].push(r);
             });
             
-            // 총 당첨금 계산
+            // 총 당첨금 계산 (4,5등 고정금액 포함)
             let totalPrize = 0;
             Object.keys(rankGroups).forEach(rank => {
                 const count = rankGroups[rank].length;
-                const amount = winningData.prize[rank]?.amount || 0;
+                let amount = winningData.prize[rank]?.amount || 0;
+                
+                // 4,5등 고정 금액 적용
+                if (rank == 4) amount = amount || 50000;
+                if (rank == 5) amount = amount || 5000;
+                
                 totalPrize += count * amount;
             });
             
@@ -1548,7 +1553,12 @@
                     
                     ${Object.keys(rankGroups).sort((a, b) => a - b).map(rank => {
                         const group = rankGroups[rank];
-                        const amount = winningData.prize[rank]?.amount || 0;
+                        let amount = winningData.prize[rank]?.amount || 0;
+                        
+                        // 4,5등 고정 금액 적용
+                        if (rank == 4) amount = amount || 50000;
+                        if (rank == 5) amount = amount || 5000;
+                        
                         const indices = group.map(r => `#${r.index + 1}`).join(', ');
                         
                         return `
@@ -1571,23 +1581,26 @@
                     }).join('')}
                     
                     <div style="margin-top: 15px; padding: 10px; background: var(--gray-100); border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--gray-600);">
-                        💡 화면에 표시된 번호 조합에 색상 테두리로 당첨 등위가 표시됩니다.
+                        💡 화면에 표시된 번호 조합에 색상 테두리로 당첨 등위가 표시됩니다.<br>
+                        <small style="color: var(--gray-500); margin-top: 5px; display: block;">
+                        ${totalPrize === 0 ? '⚠️ 당첨금 정보를 불러오지 못했습니다. 실제 당첨금은 동행복권 사이트에서 확인하세요.' : ''}
+                        </small>
                     </div>
                 </div>
             `;
         }
 
-        // 당첨 번호 조회 (다중 CORS 프록시 + 로컬 서버 권장)
+        // 당첨 번호 조회 (네이버 스크래핑 우선)
         async function fetchWinningNumbers(round) {
             // 시도 순서:
-            // 1. Netlify Functions (배포 환경)
-            // 2. 직접 API 호출 (CORS 허용 시)
-            // 3. 여러 CORS 프록시 순차 시도
+            // 1. Netlify Functions (배포 환경) - 네이버 스크래핑
+            // 2. 동행복권 API 직접 호출
+            // 3. 로컬 fallback (고정 메시지)
             
-            // 방법 1: Netlify Functions 시도
-            if (window.location.hostname.includes('netlify.app')) {
+            // 방법 1: Netlify Functions (네이버 스크래핑)
+            if (window.location.hostname.includes('netlify.app') || window.location.hostname.includes('github.io')) {
                 try {
-                    const netlifyResponse = await fetch(`/.netlify/functions/lotto-api?round=${round}`);
+                    const netlifyResponse = await fetch(`/.netlify/functions/lotto-scraper?round=${round}`);
                     if (netlifyResponse.ok) {
                         const data = await netlifyResponse.json();
                         if (data.error) {
@@ -1600,7 +1613,7 @@
                 }
             }
             
-            // 방법 2: 직접 API 호출 시도
+            // 방법 2: 동행복권 API 직접 호출 시도
             try {
                 const directResponse = await fetch(`https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${round}`);
                 
@@ -1617,70 +1630,8 @@
                 console.log('직접 API 호출 실패 (CORS):', directError.message);
             }
             
-            // 방법 3: 여러 CORS 프록시 순차 시도
-            const corsProxies = [
-                {
-                    name: 'CORS Anywhere (Heroku)',
-                    url: (apiUrl) => `https://cors-anywhere.herokuapp.com/${apiUrl}`
-                },
-                {
-                    name: 'AllOrigins',
-                    url: (apiUrl) => `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`,
-                    parseResponse: (data) => JSON.parse(data.contents)
-                },
-                {
-                    name: 'ThingProxy',
-                    url: (apiUrl) => `https://thingproxy.freeboard.io/fetch/${apiUrl}`
-                },
-                {
-                    name: 'CORS.SH',
-                    url: (apiUrl) => `https://cors.sh/${apiUrl}`,
-                    headers: { 'x-requested-with': 'XMLHttpRequest' }
-                }
-            ];
-            
-            const apiUrl = `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${round}`;
-            
-            for (const proxy of corsProxies) {
-                try {
-                    console.log(`${proxy.name} 프록시 시도...`);
-                    
-                    const options = {
-                        method: 'GET',
-                        headers: proxy.headers || {}
-                    };
-                    
-                    const proxyResponse = await Promise.race([
-                        fetch(proxy.url(apiUrl), options),
-                        new Promise((_, reject) => 
-                            setTimeout(() => reject(new Error('Timeout')), 10000)
-                        )
-                    ]);
-                    
-                    if (proxyResponse.ok) {
-                        let data = await proxyResponse.json();
-                        
-                        // 프록시 응답 파싱
-                        if (proxy.parseResponse) {
-                            data = proxy.parseResponse(data);
-                        }
-                        
-                        // 결과 확인
-                        if (data.returnValue === 'fail') {
-                            return null; // 미추첨 회차
-                        }
-                        
-                        console.log(`✅ ${proxy.name} 성공!`);
-                        return parseWinningData(data);
-                    }
-                } catch (proxyError) {
-                    console.log(`❌ ${proxy.name} 실패:`, proxyError.message);
-                    continue;
-                }
-            }
-            
             // 모든 방법 실패
-            throw new Error('CORS 문제로 당첨번호를 조회할 수 없습니다.\n\n💡 해결 방법:\n1. Python 웹 서버 실행: python -m http.server 8000\n2. Netlify에 배포하여 사용\n\n자세한 내용은 CORS_SOLUTION.md를 참고하세요.');
+            throw new Error('당첨번호를 조회할 수 없습니다.\n\n💡 해결 방법:\n1. Netlify에 배포하여 사용 (권장)\n2. Python 웹 서버 실행: python -m http.server 8000\n\n로컬 환경에서는 CORS 정책으로 인해 당첨번호 조회가 제한될 수 있습니다.');
         }
         
         // 당첨 데이터 파싱 함수
@@ -1694,11 +1645,26 @@
                 ].sort((a, b) => a - b),
                 bonus: data.bnusNo,
                 prize: {
-                    1: { count: data.firstPrzwnerCo, amount: data.firstWinamnt },
-                    2: { count: data.secondPrzwnerCo, amount: data.secondWinamnt },
-                    3: { count: data.thirdPrzwnerCo, amount: data.thirdWinamnt },
-                    4: { count: data.fourthPrzwnerCo, amount: data.fourthWinamnt },
-                    5: { count: data.fifthPrzwnerCo, amount: data.fifthWinamnt }
+                    1: { 
+                        count: data.firstPrzwnerCo || 0, 
+                        amount: data.firstWinamnt || 0 
+                    },
+                    2: { 
+                        count: data.secondPrzwnerCo || 0, 
+                        amount: data.secondWinamnt || 0 
+                    },
+                    3: { 
+                        count: data.thirdPrzwnerCo || 0, 
+                        amount: data.thirdWinamnt || 0 
+                    },
+                    4: { 
+                        count: data.fourthPrzwnerCo || 0, 
+                        amount: data.fourthWinamnt || 50000  // 고정 금액
+                    },
+                    5: { 
+                        count: data.fifthPrzwnerCo || 0, 
+                        amount: data.fifthWinamnt || 5000    // 고정 금액
+                    }
                 }
             };
         }
