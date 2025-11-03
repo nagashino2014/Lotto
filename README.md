@@ -50,11 +50,13 @@
 자동 업데이트를 기다리지 않으려면:
 
 **방법 1: GitHub에서 직접**
+
 1. GitHub 저장소 > **Actions** 탭
 2. "Update Lotto Data" 워크플로우 선택
 3. **"Run workflow"** 버튼 클릭
 
 **방법 2: 로컬에서**
+
 ```bash
 python scripts/update_lotto_weekly.py
 git add lotto_data.csv
