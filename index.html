@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>로또 번호 생성기 v7.0 (최종 수정)</title>
+    <title>로또 번호 생성기 v7.1 (오류 수정)</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -80,8 +80,6 @@
     <script>
         const { jsPDF } = window.jspdf;
         let currentLottoSets = [];
-        
-        // [수정됨] 폰트 Base64를 저장할 전역 변수
         let nanumFontBase64 = null; 
 
         // --- 유틸리티 함수: ArrayBuffer를 Base64로 ---
@@ -96,7 +94,7 @@
         }
 
         /**
-         * [수정됨] 폰트 로딩 및 버튼 활성화 함수
+         * 폰트 로딩 및 버튼 활성화 함수
          */
         async function loadFontAndSetup() {
             const generateBtn = document.getElementById('generate-btn');
@@ -106,7 +104,6 @@
             const resultsContainer = document.getElementById('results-container');
             
             try {
-                // 1. .ttf 폰트 파일을 fetch로 다운로드
                 const fontUrl = 'https://cdn.jsdelivr.net/font-nanum/1.0/nanumgothic/v3/NanumGothic-Regular.ttf';
                 const response = await fetch(fontUrl);
                 
@@ -115,16 +112,12 @@
                 }
                 
                 const fontBuffer = await response.arrayBuffer();
-                
-                // 2. [수정됨] 폰트 데이터를 전역 변수에 저장
                 nanumFontBase64 = arrayBufferToBase64(fontBuffer);
                 
-                // 3. 폰트 로딩 성공! 버튼 활성화
                 loadingMsg.textContent = "✅ 폰트 로딩 완료!";
                 loadingMsg.style.color = "green";
-                generateBtn.disabled = false; // '번호 생성' 버튼 활성화
+                generateBtn.disabled = false; 
                 
-                // 4. 이벤트 리스너 등록
                 generateBtn.addEventListener('click', () => {
                     const count = parseInt(countSelect.value, 10);
                     currentLottoSets = generateLottoSets(count);
@@ -135,7 +128,7 @@
 
                 pdfBtn.addEventListener('click', () => {
                     if (currentLottoSets.length > 0) {
-                        createLottoPDF(currentLottoSets); // 폰트가 등록된 doc 객체를 전달할 필요 없음
+                        createLottoPDF(currentLottoSets);
                     } else {
                         alert("먼저 번호를 생성해주세요.");
                     }
@@ -183,20 +176,17 @@
         }
 
         /**
-         * [수정됨] PDF 생성 시점에 폰트를 등록하는 함수
+         * PDF 생성 함수
          */
         function createLottoPDF(lottoSets) {
-            // 1. 새 PDF 문서를 생성
             const doc = new jsPDF({ unit: 'mm', format: 'a4' });
             
-            // 2. 폰트가 로드되었는지 최종 확인
             if (!nanumFontBase64) {
                 alert("오류: 폰트가 준비되지 않았습니다. 페이지를 새로고침하세요.");
                 return;
             }
 
             try {
-                // 3. [핵심] 전역 변수에 저장된 폰트 데이터를 이 PDF 객체에 등록
                 doc.addFileToVFS('NanumGothic.ttf', nanumFontBase64);
                 doc.addFont('NanumGothic.ttf', 'NanumGothic', 'normal');
                 doc.setFont('NanumGothic', 'normal');
@@ -206,7 +196,6 @@
                 return;
             }
             
-            // --- 4. 나머지 PDF 생성 코드는 동일 ---
             const margin = 20;
             const pageHeight = doc.internal.pageSize.getHeight();
             const pageWidth = doc.internal.pageSize.getWidth();
@@ -215,7 +204,7 @@
             const boxGapY = 8;
             const boxWidth = (usableWidth - boxGapX) / 2;
             const lineHeight = 7;
-            const boxPadding = 8;
+            const boxPadding = 8; // <-- 'boxPadding' 변수
             const boxHeight = (lineHeight * 5) + (boxPadding * 2);
             const col1X = margin;
             const col2X = margin + boxWidth + boxGapX;
@@ -231,18 +220,24 @@
                 if (currentY + boxHeight > pageHeight - margin) {
                     doc.addPage();
                     currentY = margin; 
-                    doc.setFont('NanumGothic', 'normal'); // 새 페이지에도 폰트 설정
+                    doc.setFont('NanumGothic', 'normal');
                     doc.setFontSize(11);
                 }
                 doc.setDrawColor('#dee2e6'); 
                 doc.roundedRect(currentX, currentY, boxWidth, boxHeight, 3, 3, 'S'); 
                 let textY = currentY + boxPadding + (lineHeight / 2); 
+                
                 chunk.forEach((numberSet, index) => {
                     const formattedNumbers = numberSet.map(num => num.toString().padStart(2, '0')).join("  ");
                     const overallIndex = (i + index + 1).toString().padStart(2, '0');
                     const lineText = `${overallIndex}.   ${formattedNumbers}`;
-                    doc.text(lineText, currentX + padding, textY);
+                    
+                    // [오류 수정] 'padding' -> 'boxPadding'
+                    doc.text(lineText, currentX + boxPadding, textY);
+                    
+                    textY += lineHeight;
                 });
+                
                 if (colIndex === 0) { colIndex = 1; } 
                 else { colIndex = 0; currentY += boxHeight + boxGapY; }
             }
