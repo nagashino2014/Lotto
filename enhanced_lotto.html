@@ -1593,22 +1593,94 @@
         // 당첨 번호 캐시 (메모리)
         const winningNumbersCache = {};
         
-        // 당첨 번호 조회 (속도 개선 + 정확성 향상)
+        // CSV 데이터 캐시
+        let lottoDataCache = null;
+        
+        // CSV 파일에서 로또 데이터 로드
+        async function loadLottoDataFromCSV() {
+            if (lottoDataCache) {
+                return lottoDataCache;
+            }
+            
+            try {
+                console.log('📂 로또 데이터 CSV 로드 중...');
+                const response = await fetch('lotto_data.csv');
+                if (!response.ok) {
+                    throw new Error('CSV 파일을 찾을 수 없습니다.');
+                }
+                
+                const csvText = await response.text();
+                const lines = csvText.trim().split('\n');
+                const data = {};
+                
+                // 헤더 제외하고 파싱
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const cols = line.split(',');
+                    if (cols.length < 12) continue;
+                    
+                    const round = parseInt(cols[0]);
+                    data[round] = {
+                        round: round,
+                        date: cols[1],
+                        numbers: [
+                            parseInt(cols[2]),
+                            parseInt(cols[3]),
+                            parseInt(cols[4]),
+                            parseInt(cols[5]),
+                            parseInt(cols[6]),
+                            parseInt(cols[7])
+                        ],
+                        bonus: parseInt(cols[8]),
+                        prize: {
+                            1: { count: 0, amount: parseInt(cols[9]) || 0 },
+                            2: { count: 0, amount: parseInt(cols[10]) || 0 },
+                            3: { count: 0, amount: parseInt(cols[11]) || 0 },
+                            4: { count: 0, amount: 50000 },
+                            5: { count: 0, amount: 5000 }
+                        }
+                    };
+                }
+                
+                lottoDataCache = data;
+                console.log('✅ CSV 로드 완료:', Object.keys(data).length, '개 회차');
+                return data;
+                
+            } catch (error) {
+                console.error('❌ CSV 로드 실패:', error);
+                return null;
+            }
+        }
+        
+        // 당첨 번호 조회 (CSV 우선, 빠르고 정확!)
         async function fetchWinningNumbers(round) {
             // 캐시 확인
             if (winningNumbersCache[round]) {
-                console.log('✅ 캐시에서 당첨번호 로드');
+                console.log('✅ 메모리 캐시에서 로드');
                 return winningNumbersCache[round];
             }
             
-            // 시도 순서 (빠른 순):
-            // 1. 동행복권 API 직접 호출 (가장 빠르고 정확)
-            // 2. Netlify Functions (서버 사이드)
-            // 3. AllOrigins 프록시 (느림)
-            
-            // 방법 1: 동행복권 API 직접 호출 (가장 빠름!)
+            // 방법 1: CSV 파일에서 조회 (가장 빠르고 안정적!)
             try {
-                console.log('동행복권 API 직접 호출 시도...');
+                console.log('🎯 CSV 파일에서 당첨번호 조회...');
+                const csvData = await loadLottoDataFromCSV();
+                
+                if (csvData && csvData[round]) {
+                    console.log('✅ CSV에서 조회 성공! (즉시 반환)');
+                    winningNumbersCache[round] = csvData[round];
+                    return csvData[round];
+                } else {
+                    console.log('⚠️ CSV에 해당 회차 없음:', round);
+                }
+            } catch (csvError) {
+                console.log('CSV 조회 실패:', csvError.message);
+            }
+            
+            // 방법 2: 동행복권 API 직접 호출 (CSV에 없는 최신 회차용)
+            try {
+                console.log('동행복권 API 시도...');
                 const directResponse = await Promise.race([
                     fetch(`https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${round}`),
                     new Promise((_, reject) => 
@@ -1623,69 +1695,35 @@
                         return null; // 미추첨 회차
                     }
                     
-                    console.log('✅ 동행복권 API 성공! (가장 빠름)');
+                    console.log('✅ 동행복권 API 성공!');
                     const result = parseWinningData(data);
-                    winningNumbersCache[round] = result; // 캐시 저장
+                    winningNumbersCache[round] = result;
                     return result;
                 }
             } catch (directError) {
-                console.log('동행복권 API 실패 (CORS 또는 차단):', directError.message);
+                console.log('동행복권 API 실패:', directError.message);
             }
             
-            // 방법 2: Netlify Functions (서버 사이드, 두 번째로 빠름)
+            // 방법 3: Netlify Functions (배포 환경)
             if (window.location.hostname.includes('netlify.app')) {
                 try {
                     console.log('Netlify Functions 시도...');
-                    const netlifyResponse = await Promise.race([
-                        fetch(`/.netlify/functions/lotto-scraper?round=${round}`),
-                        new Promise((_, reject) => 
-                            setTimeout(() => reject(new Error('Timeout')), 5000)
-                        )
-                    ]);
-                    
+                    const netlifyResponse = await fetch(`/.netlify/functions/lotto-scraper?round=${round}`);
                     if (netlifyResponse.ok) {
                         const data = await netlifyResponse.json();
-                        if (data.error) {
-                            return null; // 미추첨 회차
+                        if (!data.error) {
+                            console.log('✅ Netlify Functions 성공!');
+                            winningNumbersCache[round] = data;
+                            return data;
                         }
-                        console.log('✅ Netlify Functions 성공!');
-                        winningNumbersCache[round] = data; // 캐시 저장
-                        return data;
                     }
                 } catch (netlifyError) {
                     console.log('Netlify Functions 실패:', netlifyError.message);
                 }
             }
             
-            // 방법 3: AllOrigins 프록시 (느림, 최후의 수단)
-            try {
-                console.log('네이버 검색 결과 스크래핑 시도... (느릴 수 있음)');
-                const naverUrl = `https://search.naver.com/search.naver?where=nexearch&sm=top_hty&fbm=0&ie=utf8&query=로또+${round}회`;
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(naverUrl)}`;
-                
-                const response = await Promise.race([
-                    fetch(proxyUrl),
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('Timeout')), 10000)
-                    )
-                ]);
-                
-                if (response.ok) {
-                    const html = await response.text();
-                    const result = parseNaverLottoHtml(html, round);
-                    
-                    if (result && result.numbers.length === 6) {
-                        console.log('✅ 네이버 스크래핑 성공!');
-                        winningNumbersCache[round] = result; // 캐시 저장
-                        return result;
-                    }
-                }
-            } catch (naverError) {
-                console.log('네이버 스크래핑 실패:', naverError.message);
-            }
-            
             // 모든 방법 실패
-            throw new Error('당첨번호를 조회할 수 없습니다.\n\n💡 권장 사항:\n1. Netlify에 배포하여 사용 (가장 안정적)\n2. 인터넷 연결 확인\n3. 잠시 후 다시 시도');
+            throw new Error(`${round}회차 당첨번호를 조회할 수 없습니다.\n\n💡 해결 방법:\n1. CSV 파일에 해당 회차가 없습니다.\n2. 최신 회차는 CSV 업데이트가 필요합니다.\n3. 관리자에게 문의하세요.`);
         }
         
         // 네이버 HTML 파싱 함수
