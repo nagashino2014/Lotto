@@ -49,13 +49,17 @@ jobs:
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
+        
+        # 토큰을 사용한 remote URL 설정
+        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        
         git add lotto_data.csv
         
         # 최신 회차 확인
         LATEST_ROUND=$(head -n 2 lotto_data.csv | tail -n 1 | cut -d',' -f1)
         
         git commit -m "🎲 Auto-update: Add lotto round $LATEST_ROUND data"
-        git push
+        git push origin main
     
     - name: Summary
       if: steps.check_changes.outputs.changed == 'true'
