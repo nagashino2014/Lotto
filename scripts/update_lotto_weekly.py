@@ -104,12 +104,30 @@ def update_lotto_data():
     try:
         with open('lotto_data.csv', 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
-            existing_data = list(reader)
+            for row in reader:
+                # 문자열로 읽힌 숫자들을 정수로 변환
+                existing_data.append({
+                    'round': int(row['round']),
+                    'date': row['date'],
+                    'num1': int(row['num1']),
+                    'num2': int(row['num2']),
+                    'num3': int(row['num3']),
+                    'num4': int(row['num4']),
+                    'num5': int(row['num5']),
+                    'num6': int(row['num6']),
+                    'bonus': int(row['bonus']),
+                    'prize1': int(row['prize1']),
+                    'prize2': int(row['prize2']),
+                    'prize3': int(row['prize3'])
+                })
     except Exception as e:
         print(f"기존 데이터 읽기 실패: {e}")
     
-    # 새 데이터 추가 (최신이 위로)
+    # 새 데이터와 기존 데이터 병합
     all_data = new_data + existing_data
+    
+    # 회차 기준 내림차순 정렬 (최신이 위로)
+    all_data.sort(key=lambda x: x['round'], reverse=True)
     
     # CSV 저장
     with open('lotto_data.csv', 'w', newline='', encoding='utf-8') as f:
@@ -121,7 +139,7 @@ def update_lotto_data():
     
     print(f"\n✅ CSV 업데이트 완료!")
     print(f"  - 추가된 회차: {len(new_data)}개")
-    print(f"  - 최신: {new_data[0]['round']}회 ({new_data[0]['date']})")
+    print(f"  - 최신: {all_data[0]['round']}회 ({all_data[0]['date']})")
     print(f"  - 총 데이터: {len(all_data)}개 회차")
     
     return True
