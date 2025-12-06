@@ -59,6 +59,9 @@ jobs:
         LATEST_ROUND=$(head -n 2 lotto_data.csv | tail -n 1 | cut -d',' -f1)
         
         git commit -m "🎲 Auto-update: Add lotto round $LATEST_ROUND data"
+        
+        # 원격에 새 커밋이 있을 경우를 대비하여 rebase 후 push
+        git pull --rebase origin main
         git push origin main
     
     - name: Summary
